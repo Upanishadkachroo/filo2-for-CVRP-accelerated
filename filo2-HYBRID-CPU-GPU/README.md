@@ -137,7 +137,7 @@ nvcc -std=c++17 -O3 -arch=sm_80 \
 
 --- -->
 
-## Runtime Flags
+<!-- ## Runtime Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -146,7 +146,7 @@ nvcc -std=c++17 -O3 -arch=sm_80 \
 | `--gpu-knn` | true | Use GPU for k-NN graph construction |
 | `--gpu-savings` | true | Use GPU for savings computation |
 | `--gpu-delta` | true | Use GPU for move-delta evaluation |
-| `--cpu-only` | false | Disable all GPU paths (baseline mode) |
+| `--cpu-only` | false | Disable all GPU paths (baseline mode) | -->
 
 ---
 
