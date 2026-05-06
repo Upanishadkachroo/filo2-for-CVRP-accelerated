@@ -101,7 +101,7 @@ Each iteration calls:
 instance.get_cost(i, j)
 ```
 
-➡️ This becomes extremely expensive at scale.
+ This becomes extremely expensive at scale.
 
 ---
 
