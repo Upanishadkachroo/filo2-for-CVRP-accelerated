@@ -15,9 +15,6 @@
 
 namespace cobra {
 
-// ------------------------------------------------------------
-// Timestamp generator
-// ------------------------------------------------------------
 class TimestampGenerator : private NonCopyable<TimestampGenerator> {
 public:
     TimestampGenerator() = default;
@@ -34,9 +31,6 @@ private:
     unsigned long value = 0;
 };
 
-// ------------------------------------------------------------
-// MoveGenerator
-// ------------------------------------------------------------
 class MoveGenerator : private NonCopyable<MoveGenerator> {
 public:
     MoveGenerator(int i, int j) noexcept : i(i), j(j) {}
@@ -61,9 +55,6 @@ private:
     bool computed_for_ejch = false;
 };
 
-// ------------------------------------------------------------
-// Heap helpers
-// ------------------------------------------------------------
 struct MGCompare {
     bool operator()(MoveGenerator* a, MoveGenerator* b) const noexcept {
         assert(a && b);
@@ -94,9 +85,6 @@ struct MGUpdate {
     }
 };
 
-// ------------------------------------------------------------
-// Heap wrapper
-// ------------------------------------------------------------
 class MoveGeneratorsHeap
     : private NonCopyable<MoveGeneratorsHeap>
     , private BinaryHeap<MoveGenerator*, MGCompare, MGGetIdx, MGSetIdx, MGUpdate, -1>
@@ -135,9 +123,7 @@ private:
     }
 };
 
-// ------------------------------------------------------------
 // MoveGenerators (k-NN based)
-// ------------------------------------------------------------
 class MoveGenerators : private NonCopyable<MoveGenerators> {
 public:
     MoveGenerators(const Instance& instance, int k)
@@ -155,9 +141,6 @@ public:
         build_base_moves(instance);
     }
 
-    // --------------------------------------------------------
-    // Access
-    // --------------------------------------------------------
     inline MoveGenerator& get(int idx) noexcept {
         return moves[idx];
     }
@@ -170,9 +153,7 @@ public:
         return moves.size();
     }
 
-    // --------------------------------------------------------
     // Index helpers
-    // --------------------------------------------------------
     static inline int get_twin_move_generator_index(int idx) noexcept {
         return idx ^ 1;
     }
@@ -181,23 +162,16 @@ public:
         return idx & ~1;
     }
 
-    // --------------------------------------------------------
     // Heap access
-    // --------------------------------------------------------
     inline MoveGeneratorsHeap& get_heap() noexcept {
         return heap;
     }
 
-    // --------------------------------------------------------
     // Edge cost
-    // --------------------------------------------------------
     inline double get_edge_cost(int idx) const noexcept {
         return edge_costs[idx / 2];
     }
 
-    // --------------------------------------------------------
-    // Timestamp
-    // --------------------------------------------------------
     inline TimestampGenerator& get_timestamp_generator() noexcept {
         return timegen;
     }
@@ -211,9 +185,7 @@ public:
     }
 
 private:
-    // --------------------------------------------------------
     // Build k-NN base graph
-    // --------------------------------------------------------
     void build_base_moves(const Instance& instance)
     {
         int n = instance.get_vertices_num();
@@ -247,9 +219,7 @@ private:
         move_active_in_2nd.resize(moves.size() / 2, false);
     }
 
-    // --------------------------------------------------------
     // Insert move pair (i,j) & (j,i)
-    // --------------------------------------------------------
     void insert_move(int a, int b, double cost)
     {
         int base_idx = moves.size();

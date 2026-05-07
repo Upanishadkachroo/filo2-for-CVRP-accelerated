@@ -25,9 +25,7 @@ inline cobra::Solution routemin(
     auto t_start = std::chrono::high_resolution_clock::now();
 #endif
 
-    // -------------------------------
     // Local search setup
-    // -------------------------------
     auto rvnd0 = cobra::RandomizedVariableNeighborhoodDescent<true>(
         instance, move_generators,
         {cobra::E11, cobra::E10, cobra::TAILS, cobra::SPLIT,
@@ -74,9 +72,7 @@ inline cobra::Solution routemin(
 
         solution.clear_svc();
 
-        // -------------------------------
         // Select seed route
-        // -------------------------------
         int seed;
         do {
             seed = cust_dist(rand_engine);
@@ -99,9 +95,7 @@ inline cobra::Solution routemin(
             }
         }
 
-        // -------------------------------
         // REMOVE phase
-        // -------------------------------
         removed.clear();
         removed.insert(removed.end(), still_removed.begin(), still_removed.end());
         still_removed.clear();
@@ -122,9 +116,7 @@ inline cobra::Solution routemin(
             }
         }
 
-        // -------------------------------
         // Shuffle removed customers
-        // -------------------------------
         if (rand_engine() % 2 == 0) {
             std::sort(removed.begin(), removed.end(),
                 [&instance](int a, int b) {
@@ -133,10 +125,7 @@ inline cobra::Solution routemin(
         } else {
             std::shuffle(removed.begin(), removed.end(), rand_engine);
         }
-
-        // -------------------------------
         // REINSERT phase
-        // -------------------------------
         for (int cust : removed) {
 
             int best_route = -1;
@@ -210,14 +199,11 @@ inline cobra::Solution routemin(
             }
         }
 
-        // -------------------------------
         // LOCAL SEARCH
-        // -------------------------------
         local_search.sequential_apply(solution);
 
-        // -------------------------------
+
         // ACCEPT / UPDATE BEST
-        // -------------------------------
         if (still_removed.empty()) {
 
             if (solution.get_cost() < best_solution.get_cost() ||
@@ -232,9 +218,7 @@ inline cobra::Solution routemin(
             }
         }
 
-        // -------------------------------
         // RESET IF WORSE
-        // -------------------------------
         if (solution.get_cost() > best_solution.get_cost()) {
             solution = best_solution;
             still_removed.clear();

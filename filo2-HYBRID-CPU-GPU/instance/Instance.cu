@@ -18,7 +18,7 @@ static float* h_pinned_x = nullptr;
 static float* h_pinned_y = nullptr;
 static int    g_pinned_n = 0;       // capacity of current pinned allocation
 
-// FIX [6]: Optimal block size determined at first launch
+// Optimal block size determined at first launch
 static int g_cost_block = 256;      // default; overwritten by occupancy query
 
 static_assert(sizeof(float) == 4,
@@ -60,23 +60,22 @@ static void ensure_pinned(int n)
 
 void instance_upload_coords(const Instance& inst, cudaStream_t stream)
 {
-    nvtxRangePush("instance_upload_coords");   // FIX [4]
-
+    nvtxRangePush("instance_upload_coords");   
     const auto& x = inst.get_xcoords();
     const auto& y = inst.get_ycoords();
     const int   n = static_cast<int>(x.size());
 
     // Reallocate device buffers only if size has changed
     if (d_n_vertices != n) {
-        if (d_xcoords) { CUDA_CHECK(cudaFree(d_xcoords)); }  // FIX [3]
-        if (d_ycoords) { CUDA_CHECK(cudaFree(d_ycoords)); }  // FIX [3]
+        if (d_xcoords) { CUDA_CHECK(cudaFree(d_xcoords)); }  
+        if (d_ycoords) { CUDA_CHECK(cudaFree(d_ycoords)); }  
 
         CUDA_CHECK(cudaMalloc(&d_xcoords, n * sizeof(float)));
         CUDA_CHECK(cudaMalloc(&d_ycoords, n * sizeof(float)));
         d_n_vertices = n;
     }
 
-    // FIX [2]: Fill pinned staging buffers (one-time allocation)
+    // Fill pinned staging buffers (one-time allocation)
     ensure_pinned(n);
 
     for (int i = 0; i < n; ++i) {
@@ -84,7 +83,7 @@ void instance_upload_coords(const Instance& inst, cudaStream_t stream)
         h_pinned_y[i] = static_cast<float>(y[i]);
     }
 
-    // FIX [1]: Async transfers — DMA runs on stream while CPU continues
+    // Async transfers — DMA runs on stream while CPU continues
     CUDA_CHECK(cudaMemcpyAsync(d_xcoords, h_pinned_x,
                                n * sizeof(float),
                                cudaMemcpyHostToDevice, stream));
@@ -95,19 +94,19 @@ void instance_upload_coords(const Instance& inst, cudaStream_t stream)
     // Caller is responsible for synchronising the stream before launching
     // any kernel that reads d_xcoords / d_ycoords.
 
-    nvtxRangePop();   // FIX [4]
+    nvtxRangePop();   
 }
 
 void instance_free_coords() noexcept
 {
-    nvtxRangePush("instance_free_coords");   // FIX [4]
+    nvtxRangePush("instance_free_coords");   
 
     if (d_xcoords) {
-        CUDA_CHECK(cudaFree(d_xcoords));     // FIX [3]
+        CUDA_CHECK(cudaFree(d_xcoords));     
         d_xcoords = nullptr;
     }
     if (d_ycoords) {
-        CUDA_CHECK(cudaFree(d_ycoords));     // FIX [3]
+        CUDA_CHECK(cudaFree(d_ycoords));     
         d_ycoords = nullptr;
     }
     if (h_pinned_x) {
@@ -122,8 +121,7 @@ void instance_free_coords() noexcept
     d_n_vertices = 0;
     g_pinned_n   = 0;
 
-    nvtxRangePop();   // FIX [4]
-}
+    nvtxRangePop();   
 
 void launch_batched_cost(
     const int2*  d_pairs,
@@ -133,9 +131,9 @@ void launch_batched_cost(
 {
     if (n_pairs == 0) return;
 
-    nvtxRangePushA("batched_cost_kernel");   // FIX [4]
+    nvtxRangePushA("batched_cost_kernel");   
 
-    // FIX [6]: Query optimal block size once, cache in g_cost_block
+    // Query optimal block size once, cache in g_cost_block
     if (g_cost_block == 256) {   // sentinel: not yet queried
         int min_grid = 0;
         CUDA_CHECK(cudaOccupancyMaxPotentialBlockSize(
@@ -153,7 +151,7 @@ void launch_batched_cost(
 
     CUDA_CHECK(cudaGetLastError());
 
-    nvtxRangePop();   // FIX [4]
+    nvtxRangePop();  
 }
 
 bool instance_gpu_ready() noexcept

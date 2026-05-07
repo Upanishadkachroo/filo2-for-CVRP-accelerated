@@ -10,9 +10,7 @@ extern float* d_ycoords;
 static constexpr int MAX_K = 64;
 static constexpr int KNN_BLOCK = 256;
 
-// ------------------------------------------------------------
 // Block-level mutex
-// ------------------------------------------------------------
 __device__ int s_lock;
 
 __device__ __forceinline__
@@ -25,9 +23,7 @@ void unlock(int* mutex) {
     atomicExch(mutex, 0);
 }
 
-// ------------------------------------------------------------
 // Heap helpers
-// ------------------------------------------------------------
 __device__ __forceinline__
 void heap_sift_down(float* hd, int* hi, int root, int size)
 {
@@ -67,9 +63,7 @@ void heap_insert(float* hd, int* hi, int& size, int k, float dist, int idx)
     }
 }
 
-// ------------------------------------------------------------
-// Main kernel
-// ------------------------------------------------------------
+
 __global__ void knn_kernel(
     const float* __restrict__ xc,
     const float* __restrict__ yc,
@@ -126,9 +120,8 @@ __global__ void knn_kernel(
     }
 }
 
-// ------------------------------------------------------------
-// Partial kernel (FIXED)
-// ------------------------------------------------------------
+
+// Partial kernel
 __global__ void knn_partial_kernel(
     const float* __restrict__ xc,
     const float* __restrict__ yc,
@@ -185,9 +178,8 @@ __global__ void knn_partial_kernel(
     }
 }
 
-// ------------------------------------------------------------
+
 // Host launchers
-// ------------------------------------------------------------
 void launch_knn_full(int n, int k,
                      int* h_knn_idx, float* h_knn_dist,
                      cudaStream_t stream)

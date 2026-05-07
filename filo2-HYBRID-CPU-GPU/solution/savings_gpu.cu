@@ -44,10 +44,8 @@ __global__ void savings_kernel(
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid >= n) return;
 
-    // -------------------------------------------------
     // Shared memory: cache depot coordinates
     // Only one load per block instead of per thread
-    // -------------------------------------------------
     __shared__ float depot_x;
     __shared__ float depot_y;
 

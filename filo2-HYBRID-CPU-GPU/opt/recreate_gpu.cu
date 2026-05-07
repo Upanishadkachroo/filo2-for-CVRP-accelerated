@@ -6,9 +6,7 @@
 extern float* d_xcoords;
 extern float* d_ycoords;
 
-// ------------------------------------------------------------
 // Candidate descriptor (aligned for coalescing)
-// ------------------------------------------------------------
 struct alignas(16) InsertCandidate {
     int customer;
     int prev;
@@ -16,9 +14,7 @@ struct alignas(16) InsertCandidate {
     int pad;
 };
 
-// ------------------------------------------------------------
 // Device distance (squared distance)
-// ------------------------------------------------------------
 __device__ __forceinline__
 float dist2(const float* __restrict__ xc,
             const float* __restrict__ yc,
@@ -29,9 +25,7 @@ float dist2(const float* __restrict__ xc,
     return dx * dx + dy * dy;
 }
 
-// ------------------------------------------------------------
 // Kernel
-// ------------------------------------------------------------
 static constexpr int REC_BLOCK = 256;
 
 __global__ void recreate_kernel(
@@ -57,9 +51,6 @@ __global__ void recreate_kernel(
     out_delta[tid] = new_arcs - old_arc;
 }
 
-// ------------------------------------------------------------
-// Host launcher
-// ------------------------------------------------------------
 void launch_recreate(
     const InsertCandidate* h_cands,
     float* h_deltas,

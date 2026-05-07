@@ -12,9 +12,7 @@ namespace cobra {
 
 #ifdef TIMELIMIT
 
-// ------------------------------------------------------------
-// Time-based Simulated Annealing
-// ------------------------------------------------------------
+
 class TimeBasedSimulatedAnnealing {
 public:
     TimeBasedSimulatedAnnealing(
@@ -70,9 +68,7 @@ private:
 
 #else
 
-// ------------------------------------------------------------
 // Iteration-based Simulated Annealing
-// ------------------------------------------------------------
 class SimulatedAnnealing {
 public:
     SimulatedAnnealing(

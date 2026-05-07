@@ -609,15 +609,7 @@ namespace cobra {
             return routes_list[route].size;
         }
 
-        // Swaps the customers [iNext, ..., lastCustomer(iRoute)] from `iRoute`  and [j, lastCustomer(jRoute)] from `jRoute`.
-        //
-        // [iRoute] = depot, o, o, o, i, iNext, o, o, o, depot
-        //                              \ /
-        //                               X___
-        //                              /    |
-        // [jRoute] = depot, o, o, o, jPrev, j, o, o, o, depot
-        //
-        // Definitely not the best picture, but this replaces (i, iNext) with (i, j) and (jPrev, j) with (jPrev, jNext).
+        
         void swap_tails(const int i, const int iRoute, const int j, const int jRoute) {
 
             assert(i != instance.get_depot());

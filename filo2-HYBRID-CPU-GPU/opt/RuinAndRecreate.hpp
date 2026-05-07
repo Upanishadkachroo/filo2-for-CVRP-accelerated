@@ -33,9 +33,7 @@ public:
 
         int curr = seed;
 
-        // ----------------------------------------------------
         // RUIN PHASE
-        // ----------------------------------------------------
         for (int n = 0; n < N; n++) {
 
             if (curr == instance.get_depot()) break;
@@ -46,7 +44,6 @@ public:
             removed.push_back(curr);
             routes.insert(route);
 
-            // -------- SAME ROUTE MOVE --------
             if (solution.get_route_size(route) > 1 && boolean_dist(rand_engine)) {
 
                 if (boolean_dist(rand_engine)) {
@@ -62,7 +59,6 @@ public:
                 }
 
             }
-            // -------- JUMP ROUTE --------
             else {
 
                 const auto& neigh = instance.get_neighbors_of(curr);
@@ -99,9 +95,7 @@ public:
             curr = next;
         }
 
-        // ----------------------------------------------------
         // SHUFFLE STRATEGY
-        // ----------------------------------------------------
         switch (rand_uniform(rand_engine)) {
         case 0:
             std::shuffle(removed.begin(), removed.end(), rand_engine);
@@ -133,9 +127,7 @@ public:
 
         assert(solution.is_feasible());
 
-        // ----------------------------------------------------
         // RECREATE PHASE
-        // ----------------------------------------------------
         for (int customer : removed) {
 
             int best_route = cobra::Solution::dummy_route;
