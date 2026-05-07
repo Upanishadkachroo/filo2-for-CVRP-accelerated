@@ -148,7 +148,7 @@ nvcc -std=c++17 -O3 -arch=sm_80 \
 | `--gpu-delta` | true | Use GPU for move-delta evaluation |
 | `--cpu-only` | false | Disable all GPU paths (baseline mode) | -->
 
----
+<!-- --- -->
 
 ## Performance Expectations
 
