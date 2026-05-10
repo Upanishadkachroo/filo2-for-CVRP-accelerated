@@ -1,8 +1,8 @@
 #include "instance_gpu.h"
-#include "../cpu/Instance.hpp"
+#include "Instance.hpp"
 #include "../../base/gpu/cuda_utils.h"
 #include <cuda_runtime.h>
-#include <nvtx3/nvToolsExt.h>      // FIX [4]: NVTX profiling markers
+#include <nvtx3/nvToolsExt.h>      
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>

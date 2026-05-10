@@ -32,6 +32,6 @@ void launch_batched_cost(const int2_fwd* d_pairs,
                          int             n_pairs,
                          cuda_stream_t_fwd stream = nullptr);
 
-} // namespace cobra
+} 
 
 #endif // _FILO2_INSTANCE_GPU_H_

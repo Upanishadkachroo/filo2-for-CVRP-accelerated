@@ -102,6 +102,6 @@ private:
     std::vector<std::vector<int>> neighbors;
 };
 
-} // namespace cobra
+}
 
 #endif // _FILO2_INSTANCE_HPP_
