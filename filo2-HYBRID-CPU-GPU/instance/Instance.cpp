@@ -35,6 +35,12 @@
  * OpenMP on the CPU is the right tool here.
  */
 
+/**
+ * Instance.cpp
+ * Parallel KDTree neighbor computation
+ * + Benchmark instrumentation
+ */
+
 #include "Instance.hpp"
 
 #include <algorithm>
@@ -44,79 +50,107 @@
 #include "../base/Timer.hpp"
 
 #ifdef VERBOSE
-#  include <iostream>
+#include <iostream>
 #endif
 
 #ifdef _OPENMP
-#  include <omp.h>
+#include <omp.h>
 #endif
 
 namespace cobra {
 
-    // static
-    std::optional<Instance> Instance::make(const std::string& filepath, int neighbors_num) {
+std::optional<Instance> Instance::make(const std::string& filepath,
+                                       int neighbors_num)
+{
+    Parser parser(filepath);
 
-        Parser parser(filepath);
+    std::optional<Parser::Data> maybe_data = parser.Parse();
 
-        std::optional<Parser::Data> maybe_data = parser.Parse();
-        if (!maybe_data.has_value()) {
-            return std::nullopt;
-        }
-
-        return Instance(maybe_data.value(), neighbors_num);
+    if (!maybe_data.has_value()) {
+        return std::nullopt;
     }
 
-    Instance::Instance(const Parser::Data& data, int neighbors_num) {
+    return Instance(maybe_data.value(), neighbors_num);
+}
 
-        neighbors_num = std::min(neighbors_num, static_cast<int>(data.demands.size()));
+Instance::Instance(const Parser::Data& data,
+                   int neighbors_num)
+{
+    neighbors_num = std::min(
+        neighbors_num,
+        static_cast<int>(data.demands.size()));
 
-        // ── Copy parsed data — UNCHANGED ──────────────────────────────────────
-        vehicle_capacity = data.vehicle_capacity;
-        xcoords          = std::move(data.xcoords);
-        ycoords          = std::move(data.ycoords);
-        demands          = std::move(data.demands);
+    //---------------------------------------------------
+    // Copy parsed data
+    //---------------------------------------------------
 
-        // ── Build KD-tree — UNCHANGED ─────────────────────────────────────────
-        // BuildTree is single-threaded (mutates nodes via nth_element).
-        // Construction of the tree for 1 M points takes ~2–3 s and is not
-        // the bottleneck; the N KNN queries below dominate.
-        neighbors.resize(get_vertices_num());
+    vehicle_capacity = data.vehicle_capacity;
 
-        KDTree kd_tree(xcoords, ycoords);
+    xcoords = std::move(data.xcoords);
+    ycoords = std::move(data.ycoords);
+    demands = std::move(data.demands);
 
-        // ── Parallel KNN queries ──────────────────────────────────────────────
-        // GetNearestNeighborsBatch issues all N KNN queries using OpenMP
-        // parallel-for with dynamic(64) scheduling (variable query cost due to
-        // spatial clustering).  It also performs the "ensure i is at index 0"
-        // swap internally, so we don't repeat that logic here.
-        //
-        // Thread count is controlled by the OMP_NUM_THREADS environment variable
-        // or the omp_set_num_threads() call in main.cpp.
+    neighbors.resize(get_vertices_num());
 
-#ifdef VERBOSE
-        // Atomic counter so concurrent threads produce a correct percentage.
-        std::atomic<int> completed{0};
-        const int total = get_vertices_num();
-        Timer timer;
+    //---------------------------------------------------
+    // KDTree construction benchmark
+    //---------------------------------------------------
 
-        // We cannot use the VERBOSE timer inside the parallel region without
-        // a critical section (expensive).  Instead we print progress from the
-        // main thread after the batch returns, which is good enough.
-        // For intra-batch progress on very large instances (Lazio, 1 M), the
-        // timer check below fires approximately every 10 s after the batch.
-        (void)completed; (void)total; (void)timer;  // suppress unused warnings
-#endif
+    cobra::Timer t_kdtree;
 
-        kd_tree.GetNearestNeighborsBatch(
-            xcoords, ycoords,
-            neighbors_num,
-            get_vertices_begin(),
-            get_vertices_end(),
-            neighbors);
+    KDTree kd_tree(xcoords, ycoords);
+
+    auto t_build =
+        t_kdtree.elapsed_time<std::chrono::milliseconds>();
 
 #ifdef VERBOSE
-        std::cout << "Neighbor computation complete for " << get_vertices_num() << " vertices.\n";
+    std::cout
+        << "[BENCH] KDTree build:   "
+        << t_build
+        << " ms\n";
 #endif
-    }
 
-}  // namespace cobra
+    //---------------------------------------------------
+    // Neighbor query benchmark
+    //---------------------------------------------------
+
+#ifdef VERBOSE
+    std::atomic<int> completed{0};
+    const int total = get_vertices_num();
+
+    cobra::Timer timer;
+
+    (void)completed;
+    (void)total;
+    (void)timer;
+#endif
+
+    cobra::Timer t_query;
+
+    kd_tree.GetNearestNeighborsBatch(
+        xcoords,
+        ycoords,
+        neighbors_num,
+        get_vertices_begin(),
+        get_vertices_end(),
+        neighbors);
+
+    auto t_neighbors =
+        t_query.elapsed_time<std::chrono::milliseconds>();
+
+#ifdef VERBOSE
+
+    std::cout
+        << "[BENCH] Neighbor query: "
+        << t_neighbors
+        << " ms\n";
+
+    std::cout
+        << "Neighbor computation complete for "
+        << get_vertices_num()
+        << " vertices.\n";
+
+#endif
+}
+
+} // namespace cobra
