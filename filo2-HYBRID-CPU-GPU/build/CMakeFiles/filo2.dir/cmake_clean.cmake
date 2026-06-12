@@ -9,8 +9,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/filo2.dir/main.cpp.o.d"
   "CMakeFiles/filo2.dir/solution/Solution.cpp.o"
   "CMakeFiles/filo2.dir/solution/Solution.cpp.o.d"
-  "filo2"
-  "filo2.pdb"
+  "filo2-HYBRID-CPU-GPU"
+  "filo2-HYBRID-CPU-GPU.pdb"
 )
 
 # Per-language clean rules from dependency scanning.

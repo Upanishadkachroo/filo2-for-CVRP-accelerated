@@ -1,55 +1,84 @@
-cmake_minimum_required(VERSION 3.18)
-project(filo2 CXX)
+cmake_minimum_required(VERSION 3.22)
+project(filo2)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Compiler options
 set(WARNING_FLAGS "-Wall -Wextra -Wpedantic -Wuninitialized")
-set(OPT_FLAGS     "-O3 -march=native -flto=auto")
-set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}")
+set(OPT_FLAGS "-O3 -march=native -flto=auto")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -fsanitize=undefined -fsanitize-address-use-after-scope -fno-omit-frame-pointer -g")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OPT_FLAGS}")
-set(CMAKE_CXX_FLAGS_DEBUG
-    "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -fsanitize=undefined \
-     -fsanitize-address-use-after-scope -fno-omit-frame-pointer -g")
+
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-option(ENABLE_VERBOSE   "Enable verbose output"         ON)
-option(ENABLE_GUI       "Enable graphical interface"    OFF)
+# Options
+option(ENABLE_VERBOSE "Enable verbose output" ON)
+option(ENABLE_GUI "Enable graphical interface" OFF)
 option(ENABLE_TIMELIMIT "Enable time limit termination" OFF)
 
+message("-- Build options")
 if(ENABLE_VERBOSE)
     message("--- Verbose output ENABLED")
     add_definitions(-DVERBOSE)
+else()
+    message("--- Verbose output DISABLED")
 endif()
+
 if(ENABLE_GUI)
+    message("--- Graphical interface ENABLED")
     add_definitions(-DGUI)
+    find_package(glfw3 REQUIRED)
     set(LIBRARIES ${LIBRARIES} glfw GL)
+else()
+    message("--- Graphical interface DISABLED")
 endif()
+
 if(ENABLE_TIMELIMIT)
+    message("--- Time limit termination ENABLED")
     add_definitions(-DTIMELIMIT)
+else()
+    message("--- Time limit termination DISABLED")
 endif()
 
+# OpenMP (mandatory for parallel preprocessing)
 find_package(OpenMP REQUIRED)
-find_package(MPI    REQUIRED)
 
-add_executable(filo2
+# Optional: CUDA (for future GPU acceleration)
+option(ENABLE_CUDA "Enable CUDA support" OFF)
+if(ENABLE_CUDA)
+    find_package(CUDA REQUIRED)
+    message("--- CUDA ENABLED")
+    add_definitions(-DCUDA_ENABLED)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CUDA_HOST_FLAGS}")
+else()
+    message("--- CUDA DISABLED")
+endif()
+
+# Collect source files (explicit list)
+set(SOURCES
+    main.cpp
+    Parameters.hpp
+    Renderer.hpp
+
+    base/KDTree.cpp
+    base/KDTree.hpp
+    base/Timer.hpp
+    base/Welford.hpp
+    base/PrettyPrinter.hpp
+    base/NonCopyable.hpp
+    base/Flat2DVector.hpp
     base/BinaryHeap.hpp
     base/BitMatrix.hpp
     base/FixedSizeValueStack.hpp
-    base/Flat2DVector.hpp
     base/functor.hpp
-    base/KDTree.cpp
-    base/KDTree.hpp
     base/LRUCache.hpp
     base/macro.hpp
-    base/NonCopyable.hpp
-    base/PrettyPrinter.hpp
     base/SmallFlatMap.hpp
     base/SmallFlatSet.hpp
     base/SparseIntSet.hpp
-    base/Timer.hpp
     base/VectorView.hpp
-    base/Welford.hpp
 
     instance/Instance.cpp
     instance/Instance.hpp
@@ -81,34 +110,29 @@ add_executable(filo2
 
     movegen/MoveGenerators.hpp
 
-    opt/bpp.hpp
     opt/routemin.hpp
     opt/RuinAndRecreate.hpp
     opt/SimulatedAnnealing.hpp
+    opt/bpp.hpp
 
     solution/savings.hpp
-    solution/SavingsImpl.hpp
-    solution/Solution.cpp
     solution/Solution.hpp
-
-    main.cpp
-    Parameters.hpp
-    Renderer.hpp
+    solution/Solution.cpp
 )
 
-target_include_directories(filo2 PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${MPI_CXX_INCLUDE_DIRS}
-)
+# Add executable
+add_executable(filo2 ${SOURCES})
+set_target_properties(filo2 PROPERTIES OUTPUT_NAME "filo2-HYBRID-CPU-GPU")
 
-target_link_libraries(filo2 PUBLIC
-    ${LIBRARIES}
-    OpenMP::OpenMP_CXX
-    MPI::MPI_CXX
-)
+# Link libraries
+target_link_libraries(filo2 PUBLIC ${LIBRARIES} OpenMP::OpenMP_CXX)
 
-option(FILO2_BENCH "Enable per-step timing for benchmarking" OFF)
-if(FILO2_BENCH)
-    target_compile_definitions(filo2 PRIVATE BENCH)
-    message(STATUS "BENCH timing enabled")
+if(ENABLE_CUDA)
+    target_link_libraries(filo2 PUBLIC ${CUDA_LIBRARIES})
+    set_target_properties(filo2 PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+endif()
+
+# Ensure OpenMP flags are passed even if find_package is not perfect (fallback)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(filo2 PRIVATE -fopenmp)
 endif()

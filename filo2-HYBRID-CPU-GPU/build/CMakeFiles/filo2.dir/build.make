@@ -72,10 +72,24 @@ include CMakeFiles/filo2.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/filo2.dir/flags.make
 
+CMakeFiles/filo2.dir/main.cpp.o: CMakeFiles/filo2.dir/flags.make
+CMakeFiles/filo2.dir/main.cpp.o: /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/main.cpp
+CMakeFiles/filo2.dir/main.cpp.o: CMakeFiles/filo2.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/filo2.dir/main.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/filo2.dir/main.cpp.o -MF CMakeFiles/filo2.dir/main.cpp.o.d -o CMakeFiles/filo2.dir/main.cpp.o -c /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/main.cpp
+
+CMakeFiles/filo2.dir/main.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/filo2.dir/main.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/main.cpp > CMakeFiles/filo2.dir/main.cpp.i
+
+CMakeFiles/filo2.dir/main.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/filo2.dir/main.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/main.cpp -o CMakeFiles/filo2.dir/main.cpp.s
+
 CMakeFiles/filo2.dir/base/KDTree.cpp.o: CMakeFiles/filo2.dir/flags.make
 CMakeFiles/filo2.dir/base/KDTree.cpp.o: /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/base/KDTree.cpp
 CMakeFiles/filo2.dir/base/KDTree.cpp.o: CMakeFiles/filo2.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/filo2.dir/base/KDTree.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/filo2.dir/base/KDTree.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/filo2.dir/base/KDTree.cpp.o -MF CMakeFiles/filo2.dir/base/KDTree.cpp.o.d -o CMakeFiles/filo2.dir/base/KDTree.cpp.o -c /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/base/KDTree.cpp
 
 CMakeFiles/filo2.dir/base/KDTree.cpp.i: cmake_force
@@ -89,7 +103,7 @@ CMakeFiles/filo2.dir/base/KDTree.cpp.s: cmake_force
 CMakeFiles/filo2.dir/instance/Instance.cpp.o: CMakeFiles/filo2.dir/flags.make
 CMakeFiles/filo2.dir/instance/Instance.cpp.o: /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/instance/Instance.cpp
 CMakeFiles/filo2.dir/instance/Instance.cpp.o: CMakeFiles/filo2.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/filo2.dir/instance/Instance.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/filo2.dir/instance/Instance.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/filo2.dir/instance/Instance.cpp.o -MF CMakeFiles/filo2.dir/instance/Instance.cpp.o.d -o CMakeFiles/filo2.dir/instance/Instance.cpp.o -c /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/instance/Instance.cpp
 
 CMakeFiles/filo2.dir/instance/Instance.cpp.i: cmake_force
@@ -103,7 +117,7 @@ CMakeFiles/filo2.dir/instance/Instance.cpp.s: cmake_force
 CMakeFiles/filo2.dir/instance/Parser.cpp.o: CMakeFiles/filo2.dir/flags.make
 CMakeFiles/filo2.dir/instance/Parser.cpp.o: /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/instance/Parser.cpp
 CMakeFiles/filo2.dir/instance/Parser.cpp.o: CMakeFiles/filo2.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/filo2.dir/instance/Parser.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/filo2.dir/instance/Parser.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/filo2.dir/instance/Parser.cpp.o -MF CMakeFiles/filo2.dir/instance/Parser.cpp.o.d -o CMakeFiles/filo2.dir/instance/Parser.cpp.o -c /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/instance/Parser.cpp
 
 CMakeFiles/filo2.dir/instance/Parser.cpp.i: cmake_force
@@ -117,7 +131,7 @@ CMakeFiles/filo2.dir/instance/Parser.cpp.s: cmake_force
 CMakeFiles/filo2.dir/solution/Solution.cpp.o: CMakeFiles/filo2.dir/flags.make
 CMakeFiles/filo2.dir/solution/Solution.cpp.o: /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/solution/Solution.cpp
 CMakeFiles/filo2.dir/solution/Solution.cpp.o: CMakeFiles/filo2.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/filo2.dir/solution/Solution.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/filo2.dir/solution/Solution.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/filo2.dir/solution/Solution.cpp.o -MF CMakeFiles/filo2.dir/solution/Solution.cpp.o.d -o CMakeFiles/filo2.dir/solution/Solution.cpp.o -c /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/solution/Solution.cpp
 
 CMakeFiles/filo2.dir/solution/Solution.cpp.i: cmake_force
@@ -128,47 +142,31 @@ CMakeFiles/filo2.dir/solution/Solution.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/filo2.dir/solution/Solution.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/solution/Solution.cpp -o CMakeFiles/filo2.dir/solution/Solution.cpp.s
 
-CMakeFiles/filo2.dir/main.cpp.o: CMakeFiles/filo2.dir/flags.make
-CMakeFiles/filo2.dir/main.cpp.o: /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/main.cpp
-CMakeFiles/filo2.dir/main.cpp.o: CMakeFiles/filo2.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/filo2.dir/main.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/filo2.dir/main.cpp.o -MF CMakeFiles/filo2.dir/main.cpp.o.d -o CMakeFiles/filo2.dir/main.cpp.o -c /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/main.cpp
-
-CMakeFiles/filo2.dir/main.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/filo2.dir/main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/main.cpp > CMakeFiles/filo2.dir/main.cpp.i
-
-CMakeFiles/filo2.dir/main.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/filo2.dir/main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/main.cpp -o CMakeFiles/filo2.dir/main.cpp.s
-
 # Object files for target filo2
 filo2_OBJECTS = \
+"CMakeFiles/filo2.dir/main.cpp.o" \
 "CMakeFiles/filo2.dir/base/KDTree.cpp.o" \
 "CMakeFiles/filo2.dir/instance/Instance.cpp.o" \
 "CMakeFiles/filo2.dir/instance/Parser.cpp.o" \
-"CMakeFiles/filo2.dir/solution/Solution.cpp.o" \
-"CMakeFiles/filo2.dir/main.cpp.o"
+"CMakeFiles/filo2.dir/solution/Solution.cpp.o"
 
 # External object files for target filo2
 filo2_EXTERNAL_OBJECTS =
 
-filo2: CMakeFiles/filo2.dir/base/KDTree.cpp.o
-filo2: CMakeFiles/filo2.dir/instance/Instance.cpp.o
-filo2: CMakeFiles/filo2.dir/instance/Parser.cpp.o
-filo2: CMakeFiles/filo2.dir/solution/Solution.cpp.o
-filo2: CMakeFiles/filo2.dir/main.cpp.o
-filo2: CMakeFiles/filo2.dir/build.make
-filo2: /usr/lib/gcc/x86_64-linux-gnu/13/libgomp.so
-filo2: /usr/lib/x86_64-linux-gnu/libpthread.a
-filo2: /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_cxx.so
-filo2: /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi.so
-filo2: CMakeFiles/filo2.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX executable filo2"
+filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/main.cpp.o
+filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/base/KDTree.cpp.o
+filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/instance/Instance.cpp.o
+filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/instance/Parser.cpp.o
+filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/solution/Solution.cpp.o
+filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/build.make
+filo2-HYBRID-CPU-GPU: /usr/lib/gcc/x86_64-linux-gnu/13/libgomp.so
+filo2-HYBRID-CPU-GPU: /usr/lib/x86_64-linux-gnu/libpthread.a
+filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/link.txt
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX executable filo2-HYBRID-CPU-GPU"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/filo2.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
-CMakeFiles/filo2.dir/build: filo2
+CMakeFiles/filo2.dir/build: filo2-HYBRID-CPU-GPU
 .PHONY : CMakeFiles/filo2.dir/build
 
 CMakeFiles/filo2.dir/clean:

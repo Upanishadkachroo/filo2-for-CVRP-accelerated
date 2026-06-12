@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = -DVERBOSE
 
-CXX_INCLUDES = -I/home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU -isystem /usr/lib/x86_64-linux-gnu/openmpi/include -isystem /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi
+CXX_INCLUDES = 
 
-CXX_FLAGS =  -Wall -Wextra -Wpedantic -Wuninitialized -O3 -DNDEBUG -O3 -march=native -flto=auto -std=gnu++17 -fopenmp
+CXX_FLAGS =  -Wall -Wextra -Wpedantic -Wuninitialized -std=gnu++17 -fopenmp -fopenmp
 

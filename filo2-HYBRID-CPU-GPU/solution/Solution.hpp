@@ -11,6 +11,15 @@
 #include "../instance/Instance.hpp"
 
 namespace cobra {
+
+    // Class representing a CVRP solution.
+    // A few highlevel notes:
+    // - Route is not a first class concept (e.g., there is no Route class, but all operations on routes go through this Solution class).
+    // - Routes are stored as doubly linked lists (implemented with a prev and next vectors).
+    // - There is a single depot, and this makes it quite a special node since it belongs to all routes, but it cannot be used to identify
+    // any specific route. For this reason, there are methods such as `get_route_index` that either take a single customer in input or two
+    // vertices: the vertex for which we are interested in getting the route index, and a fallback that is a vertex (different from the
+    // previous one), that should be used in case the former is the depot.
     class Solution {
 
     public:
@@ -609,7 +618,15 @@ namespace cobra {
             return routes_list[route].size;
         }
 
-        
+        // Swaps the customers [iNext, ..., lastCustomer(iRoute)] from `iRoute`  and [j, lastCustomer(jRoute)] from `jRoute`.
+        //
+        // [iRoute] = depot, o, o, o, i, iNext, o, o, o, depot
+        //                              \ /
+        //                               X___
+        //                              /    |
+        // [jRoute] = depot, o, o, o, jPrev, j, o, o, o, depot
+        //
+        // Definitely not the best picture, but this replaces (i, iNext) with (i, j) and (jPrev, j) with (jPrev, jNext).
         void swap_tails(const int i, const int iRoute, const int j, const int jRoute) {
 
             assert(i != instance.get_depot());

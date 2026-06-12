@@ -13,7 +13,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 option(ENABLE_VERBOSE "Enable verbose output" ON)
 option(ENABLE_GUI "Enable graphical interface" OFF)
-option(ENABLE_TIMELIMIT "Enable time limit termination" OFF)
+option(ENABLE_TIMELIMIT "Enable time limiet termination" OFF)
 
 message("-- Build options")
 
@@ -39,9 +39,6 @@ if(ENABLE_TIMELIMIT)
 else()
     message("--- Time limit termination DISABLED")
 endif()
-
-# Find OpenMP (required for parallel neighbor generation)
-find_package(OpenMP REQUIRED)
 
 add_executable(filo2
 
@@ -106,4 +103,4 @@ add_executable(filo2
     Renderer.hpp
 )
 
-target_link_libraries(filo2 PUBLIC ${LIBRARIES} OpenMP::OpenMP_CXX)
+target_link_libraries(filo2 PUBLIC ${LIBRARIES})

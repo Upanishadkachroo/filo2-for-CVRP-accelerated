@@ -2,8 +2,6 @@
 #define _FILO2_ROUTEMIN_HPP_
 
 #include <chrono>
-#include <limits>
-#include <algorithm>
 
 #include "../base/PrettyPrinter.hpp"
 #include "../base/SparseIntSet.hpp"
@@ -12,225 +10,249 @@
 #include "../movegen/MoveGenerators.hpp"
 #include "../solution/Solution.hpp"
 
-inline cobra::Solution routemin(
-    const cobra::Instance &instance,
-    const cobra::Solution &source,
-    std::mt19937 &rand_engine,
-    cobra::MoveGenerators &move_generators,
-    int kmin,
-    int max_iter,
-    double tolerance)
-{
+// Route minimization procedure.
+inline cobra::Solution routemin(const cobra::Instance &instance, const cobra::Solution &source, std::mt19937 &rand_engine,
+                                cobra::MoveGenerators &move_generators, int kmin, int max_iter, double tolerance) {
+
 #ifdef VERBOSE
-    auto t_start = std::chrono::high_resolution_clock::now();
+    auto partial_time_begin = std::chrono::high_resolution_clock::now();
+    auto partial_time_end = std::chrono::high_resolution_clock::now();
 #endif
 
-    // Local search setup
-    auto rvnd0 = cobra::RandomizedVariableNeighborhoodDescent<true>(
+    // Setup the local search engine.
+    auto rvnd0 = cobra::RandomizedVariableNeighborhoodDescent</*handle_partial_solutions=*/true>(
         instance, move_generators,
-        {cobra::E11, cobra::E10, cobra::TAILS, cobra::SPLIT,
-         cobra::RE22B, cobra::E22, cobra::RE20, cobra::RE21,
-         cobra::RE22S, cobra::E21, cobra::E20, cobra::TWOPT,
-         cobra::RE30, cobra::E30, cobra::RE33B, cobra::E33,
-         cobra::RE31, cobra::RE32B, cobra::RE33S,
-         cobra::E31, cobra::E32, cobra::RE32S},
+        {cobra::E11,   cobra::E10,   cobra::TAILS, cobra::SPLIT, cobra::RE22B, cobra::E22,  cobra::RE20,  cobra::RE21,
+         cobra::RE22S, cobra::E21,   cobra::E20,   cobra::TWOPT, cobra::RE30,  cobra::E30,  cobra::RE33B, cobra::E33,
+         cobra::RE31,  cobra::RE32B, cobra::RE33S, cobra::E31,   cobra::E32,   cobra::RE32S},
         rand_engine, tolerance);
-
     auto local_search = cobra::VariableNeighborhoodDescentComposer(tolerance);
     local_search.append(&rvnd0);
 
-    // Activate all move generators
-    std::vector<int> gamma_vertices;
-    std::vector<double> gamma(instance.get_vertices_num(), 1.0);
-
-    for (int i = instance.get_vertices_begin(); i < instance.get_vertices_end(); i++) {
-        gamma_vertices.push_back(i);
+    // We are going to use all the available move generators for during this procedure.
+    auto gamma_vertices = std::vector<int>();
+    auto gamma = std::vector<double>(instance.get_vertices_num(), 1.0f);
+    for (auto i = instance.get_vertices_begin(); i < instance.get_vertices_end(); i++) {
+        gamma_vertices.emplace_back(i);
     }
     move_generators.set_active_percentage(gamma, gamma_vertices);
 
-    cobra::Solution best_solution = source;
-    cobra::Solution solution = source;
+    auto best_solution = source;
 
-    std::uniform_real_distribution<double> uniform01(0.0, 1.0);
-    std::uniform_int_distribution<int> cust_dist(
-        instance.get_customers_begin(),
-        instance.get_customers_end() - 1);
+    auto uniform_01_dist = std::uniform_real_distribution<double>(0.0f, 1.0f);
+    auto customers_distribution = std::uniform_int_distribution(instance.get_customers_begin(), instance.get_customers_end() - 1);
 
-    // Cooling parameter
-    double t = 1.0;
-    double t_end = 0.01;
-    double cooling = std::pow(t_end / t, 1.0 / max_iter);
+    // The value of `t` identifies the probability for a customer to remain unserved if it cannot be inserted into the existing routes.
+    const auto t_base = 1.00f;
+    const auto t_end = 0.01f;
+    auto t = t_base;
+    auto c = std::pow(t_end / t_base, 1.0 / max_iter);
 
-    std::vector<int> removed;
-    std::vector<int> still_removed;
+    auto removed = std::vector<int>();
     removed.reserve(instance.get_customers_num());
+
+    auto still_removed = std::vector<int>();
     still_removed.reserve(instance.get_customers_num());
 
     cobra::SparseIntSet neighbor_routes(instance.get_vertices_num());
 
-    for (int iter = 0; iter < max_iter; iter++) {
+    auto solution = best_solution;
+
+#ifdef VERBOSE
+    const auto main_opt_loop_begin_time = std::chrono::high_resolution_clock::now();
+
+    auto printer = cobra::PrettyPrinter({{"%", cobra::PrettyPrinter::Field::Type::INTEGER, 3, " "},
+                                         {"Objective", cobra::PrettyPrinter::Field::Type::INTEGER, 10, " "},
+                                         {"Routes", cobra::PrettyPrinter::Field::Type::INTEGER, 6, " "},
+                                         {"Iter/s", cobra::PrettyPrinter::Field::Type::REAL, 7, " "},
+                                         {"Eta (s)", cobra::PrettyPrinter::Field::Type::REAL, 6, " "},
+                                         {"% Inf", cobra::PrettyPrinter::Field::Type::REAL, 6, " "}});
+
+    auto number_infeasible_solutions = 0;
+
+#endif
+
+    for (auto iter = 0; iter < max_iter; iter++) {
+
+#ifdef VERBOSE
+        partial_time_end = std::chrono::high_resolution_clock::now();
+        const auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(partial_time_end - partial_time_begin).count();
+        if (elapsed_time > 1) {
+
+            const auto progress = 100.0f * (iter + 1.0f) / static_cast<double>(max_iter);
+            const auto elapsed_seconds = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() -
+                                                                                          main_opt_loop_begin_time)
+                                             .count();
+            const auto iter_per_second = static_cast<double>(iter + 1.0f) / (static_cast<double>(elapsed_seconds) + 0.01f);
+            const auto remaining_iter = max_iter - iter;
+            const auto estimated_rem_time = static_cast<double>(remaining_iter) / iter_per_second;
+            const auto fraction_infeasible_solutions = static_cast<double>(number_infeasible_solutions) / (iter + 1.0f);
+
+            printer.print(progress, best_solution.get_cost(), best_solution.get_routes_num(), iter_per_second, estimated_rem_time,
+                          fraction_infeasible_solutions);
+
+
+            partial_time_begin = std::chrono::high_resolution_clock::now();
+        }
+#endif
 
         solution.clear_svc();
 
-        // Select seed route
-        int seed;
+        // Pick a random seed customer and use it used to identify a random route.
+        auto seed = cobra::Solution::dummy_vertex;
         do {
-            seed = cust_dist(rand_engine);
+            seed = customers_distribution(rand_engine);
         } while (!solution.is_customer_in_solution(seed));
-
-        std::vector<int> selected_routes;
+        auto selected_routes = std::vector<int>();
         selected_routes.push_back(solution.get_route_index(seed));
-
         const auto &neighbors = instance.get_neighbors_of(seed);
 
-        for (size_t n = 1; n < neighbors.size(); n++) {
-            int v = neighbors[n];
-            if (v == instance.get_depot()) continue;
-            if (!solution.is_customer_in_solution(v)) continue;
-
-            int r = solution.get_route_index(v);
-            if (r != selected_routes[0]) {
-                selected_routes.push_back(r);
+        // Scan the neighbors of this seed customer to select a neighbor route.
+        for (auto n = 1u; n < neighbors.size(); n++) {
+            const auto vertex = neighbors[n];
+            if (vertex == instance.get_depot()) {
+                continue;
+            }
+            if (!solution.is_customer_in_solution(vertex)) {
+                continue;
+            }
+            const auto route = solution.get_route_index(vertex);
+            if (route != selected_routes[0]) {
+                selected_routes.push_back(route);
                 break;
             }
         }
 
-        // REMOVE phase
         removed.clear();
         removed.insert(removed.end(), still_removed.begin(), still_removed.end());
         still_removed.clear();
 
-        for (int route : selected_routes) {
-
-            int curr = solution.get_first_customer(route);
-
-            while (curr != instance.get_depot()) {
-                int next = solution.get_next_vertex(curr);
-                solution.remove_vertex(route, curr);
-                removed.push_back(curr);
+        // Remove all customers from the selected routes.
+        for (auto selected_route : selected_routes) {
+            auto curr = solution.get_first_customer(selected_route);
+            do {
+                const auto next = solution.get_next_vertex(curr);
+                solution.remove_vertex(selected_route, curr);
+                removed.emplace_back(curr);
                 curr = next;
-            }
-
-            if (!solution.is_route_empty(route)) {
-                solution.remove_route(route);
-            }
+            } while (curr != instance.get_depot());
+            solution.remove_route(selected_route);
         }
 
-        // Shuffle removed customers
+        // Pick an order for the removed customers.
         if (rand_engine() % 2 == 0) {
             std::sort(removed.begin(), removed.end(),
-                [&instance](int a, int b) {
-                    return instance.get_demand(a) > instance.get_demand(b);
-                });
+                      [&instance](auto i, auto j) { return instance.get_demand(i) > instance.get_demand(j); });
         } else {
             std::shuffle(removed.begin(), removed.end(), rand_engine);
         }
-        // REINSERT phase
-        for (int cust : removed) {
 
-            int best_route = -1;
-            int best_where = -1;
-            double best_delta = std::numeric_limits<double>::max();
+        // Tentatively find an insertion position for the removed customers.
+        for (auto i : removed) {
 
-            const auto &neigh = instance.get_neighbors_of(cust);
+            auto best_route = -1;
+            auto best_where = -1;
+            auto best_delta = std::numeric_limits<double>::max();
 
+            // Only consider insertion in routes serving the neighbors of the removed customer.
+            // (That's not necessarily the smartest choice, especially for long routes it may not be worth considering insertion far from
+            // the removed customer.)
+            const auto &neighbors = instance.get_neighbors_of(i);
             neighbor_routes.clear();
-
-            for (size_t n = 1; n < neigh.size(); n++) {
-                int v = neigh[n];
-                if (v == instance.get_depot()) continue;
-                if (!solution.is_customer_in_solution(v)) continue;
-
-                neighbor_routes.insert(solution.get_route_index(v));
+            for (int n = 1; n < static_cast<int>(neighbors.size()); n++) {
+                int where = neighbors[n];
+                if (where == instance.get_depot() || !solution.is_customer_in_solution(where)) continue;
+                neighbor_routes.insert(solution.get_route_index(where));
             }
 
-            double c_depot = instance.get_cost(cust, instance.get_depot());
+            // Accessing the cost matrix is super expensive, cache whenever possible!
+            const auto c_i_depot = instance.get_cost(i, instance.get_depot());
 
-            for (int route : neighbor_routes.get_elements()) {
+            for (auto route : neighbor_routes.get_elements()) {
 
-                if (solution.get_route_load(route) + instance.get_demand(cust) >
-                    instance.get_vehicle_capacity()) {
+                if (solution.get_route_load(route) + instance.get_demand(i) > instance.get_vehicle_capacity()) {
                     continue;
                 }
 
-                for (int j = solution.get_first_customer(route);
-                     j != instance.get_depot();
-                     j = solution.get_next_vertex(j)) {
-
-                    int prev = solution.get_prev_vertex(route, j);
-
-                    double delta =
-                        -solution.get_cost_prev_customer(j)
-                        + instance.get_cost(prev, cust)
-                        + instance.get_cost(cust, j);
-
+                // Consider insertion before customer `j`.
+                for (auto j = solution.get_first_customer(route); j != instance.get_depot(); j = solution.get_next_vertex(j)) {
+                    const auto prev = solution.get_prev_vertex(route, j);
+                    const auto delta = -solution.get_cost_prev_customer(j) + instance.get_cost(prev, i) + instance.get_cost(i, j);
                     if (delta < best_delta) {
-                        best_delta = delta;
                         best_route = route;
                         best_where = j;
+                        best_delta = delta;
                     }
                 }
 
-                double end_delta =
-                    -solution.get_cost_prev_depot(route)
-                    + instance.get_cost(solution.get_last_customer(route), cust)
-                    + c_depot;
-
-                if (end_delta < best_delta) {
-                    best_delta = end_delta;
+                // Consider insertion before the depot.
+                const auto delta = -solution.get_cost_prev_depot(route) + instance.get_cost(solution.get_last_customer(route), i) +
+                                   c_i_depot;
+                if (delta < best_delta) {
                     best_route = route;
                     best_where = instance.get_depot();
+                    best_delta = delta;
                 }
             }
 
-            // Decision: insert or delay
             if (best_route == -1) {
-
-                double r = uniform01(rand_engine);
-
+                // If we can't find an insertion position, probabilistically leave the customer unserved.
+                const auto r = uniform_01_dist(rand_engine);
                 if (r > t || solution.get_routes_num() < kmin) {
-                    solution.build_one_customer_route(cust);
+                    solution.build_one_customer_route(i);
                 } else {
-                    still_removed.push_back(cust);
+                    still_removed.push_back(i);
                 }
-
             } else {
-                solution.insert_vertex_before(best_route, best_where, cust);
+                solution.insert_vertex_before(best_route, best_where, i);
             }
         }
 
-        // LOCAL SEARCH
+        // Reoptimize the (partial) solution.
         local_search.sequential_apply(solution);
 
-
-        // ACCEPT / UPDATE BEST
         if (still_removed.empty()) {
-
+            // If there are no unserved customers, let's check whether this is a good solution!
             if (solution.get_cost() < best_solution.get_cost() ||
-                (solution.get_cost() == best_solution.get_cost() &&
-                 solution.get_routes_num() < best_solution.get_routes_num())) {
+                (solution.get_cost() == best_solution.get_cost() && solution.get_routes_num() < best_solution.get_routes_num())) {
 
-                best_solution = solution;
+                solution.apply_do_list1(best_solution);
+                solution.clear_do_list1();
+                solution.clear_undo_list1();
+                assert(best_solution == solution);
 
+                // We are satisfied when the current solution has the estimated number of routes.
                 if (best_solution.get_routes_num() <= kmin) {
-                    break;  // early exit
+                    goto end;
                 }
             }
+
+        } else {
+
+#ifdef VERBOSE
+            number_infeasible_solutions++;
+#endif
         }
 
-        // RESET IF WORSE
         if (solution.get_cost() > best_solution.get_cost()) {
-            solution = best_solution;
+            // Reset to the best solution, since we don't want to spend time exploring worsening solutions.
+            solution.apply_undo_list1(solution);
+            solution.clear_do_list1();
+            solution.clear_undo_list1();
+            assert(solution == best_solution);
+
             still_removed.clear();
         }
 
-        // Cooling
-        t *= cooling;
+        t *= c;
 
         assert(solution.is_feasible());
     }
 
+end:
+
     assert(best_solution.is_feasible());
+
     return best_solution;
 }
 
