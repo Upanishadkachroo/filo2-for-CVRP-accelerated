@@ -12,7 +12,10 @@
 #endif
 
 #ifdef USE_CUDA_NEIGHBORS
-#include "../cuda/CudaNeighborFinder.hpp"
+    #include "../cuda/CudaNeighborFinder.hpp"
+    #ifdef USE_GRID_NEIGHBOR
+        #include "../cuda/GridNeighborFinder.hpp"
+    #endif
 #endif
 
 namespace cobra {
@@ -38,9 +41,21 @@ namespace cobra {
         neighbors.resize(get_vertices_num());
 
 #ifdef USE_CUDA_NEIGHBORS
-        // ---------- CUDA accelerated brute‑force neighbor finder ----------
-        cobra::CudaNeighborFinder gpu_finder(xcoords, ycoords);
-        neighbors = gpu_finder.computeAllNeighbors(neighbors_num, true);  // true = verbose progress
+        const int N = get_vertices_num();
+        const bool use_grid = (N > 200000);   // threshold – tune as needed
+
+        #ifdef USE_GRID_NEIGHBOR
+        if (use_grid) {
+            // ---------- Grid‑based CUDA neighbor finder (for large N) ----------
+            cobra::GridNeighborFinder gpu_finder(xcoords, ycoords);
+            neighbors = gpu_finder.computeAllNeighbors(neighbors_num, true);
+        } else
+        #endif
+        {
+            // ---------- Brute‑force batched CUDA neighbor finder (for small/medium N) ----------
+            cobra::CudaNeighborFinder gpu_finder(xcoords, ycoords);
+            neighbors = gpu_finder.computeAllNeighbors(neighbors_num, true);
+        }
 #else
         // ---------- Original KDTree + OpenMP parallel queries ----------
         KDTree kd_tree(xcoords, ycoords);

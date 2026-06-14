@@ -4,6 +4,9 @@
 #include <chrono>
 #include <algorithm>
 #include <cstring>
+#include <thrust/device_vector.h>
+#include <thrust/sequence.h>
+#include <thrust/swap.h>
 
 namespace cobra {
 
@@ -25,7 +28,6 @@ struct FixedHeap {
             // sift up
             int i = size - 1;
             while (i > 0 && dists[i] > dists[(i-1)/2]) {
-                // swap with parent
                 int p = (i-1)/2;
                 thrust::swap(indices[i], indices[p]);
                 thrust::swap(dists[i], dists[p]);
@@ -51,8 +53,7 @@ struct FixedHeap {
     }
 
     __device__ void sort() {
-        // Convert max‑heap to sorted ascending order (by distance)
-        // Simple selection sort because K is small (<= 1500)
+        // Convert max‑heap to sorted ascending order (simple selection sort)
         for (int i = 0; i < size-1; ++i) {
             int min_idx = i;
             for (int j = i+1; j < size; ++j) {
@@ -66,9 +67,12 @@ struct FixedHeap {
     }
 };
 
-// Kernel: each thread handles one query point. Scans the entire dataset in tiles,
-// computing squared distances and maintaining a max‑heap of the k closest.
-template <int K, int BLOCK_SIZE, int TILE_SIZE>
+// Kernel constants (tune for your GPU)
+constexpr int BLOCK_SIZE = 256;
+constexpr int TILE_SIZE = 1024;   // points loaded into shared memory per block
+
+// Kernel: each thread handles one query point.
+template <int K>
 __global__ void batchedKNN(const double* __restrict__ x, const double* __restrict__ y, int n,
                            const int* __restrict__ query_ids, int num_queries,
                            int* __restrict__ out_indices, float* __restrict__ out_dists) {
@@ -79,9 +83,8 @@ __global__ void batchedKNN(const double* __restrict__ x, const double* __restric
     int tid = threadIdx.x;
     int query_idx = blockIdx.x * blockDim.x + tid;
     bool active = query_idx < num_queries;
-    int qid = active ? query_ids[query_idx] : 0; // actual vertex index
+    int qid = active ? query_ids[query_idx] : 0;
 
-    // Per‑thread heap (stored in registers / local memory)
     FixedHeap<int, K> heap;
 
     // Process dataset in tiles
@@ -93,7 +96,6 @@ __global__ void batchedKNN(const double* __restrict__ x, const double* __restric
                 s_x[i] = x[global_idx];
                 s_y[i] = y[global_idx];
             } else {
-                // pad with zeros (won't be used)
                 s_x[i] = 0.0;
                 s_y[i] = 0.0;
             }
@@ -101,15 +103,13 @@ __global__ void batchedKNN(const double* __restrict__ x, const double* __restric
         __syncthreads();
 
         if (active) {
-            double qx = x[qid];   // query point coordinates
+            double qx = x[qid];
             double qy = y[qid];
-            // Compute distances for all points in the tile
             for (int i = 0; i < TILE_SIZE && (tile_start + i) < n; ++i) {
                 double dx = qx - s_x[i];
                 double dy = qy - s_y[i];
                 float dist = static_cast<float>(dx*dx + dy*dy);
                 int global_idx = tile_start + i;
-                // Exclude the query point itself (distance 0 should not be added)
                 if (global_idx != qid) {
                     heap.push(global_idx, dist);
                 }
@@ -118,9 +118,9 @@ __global__ void batchedKNN(const double* __restrict__ x, const double* __restric
         __syncthreads();
     }
 
-    // Write results to global memory
+    // Write results
     if (active) {
-        heap.sort(); // now ascending order
+        heap.sort();
         int base = query_idx * K;
         for (int i = 0; i < K; ++i) {
             out_indices[base + i] = heap.indices[i];
@@ -147,57 +147,58 @@ CudaNeighborFinder::~CudaNeighborFinder() {
 }
 
 std::vector<int> CudaNeighborFinder::computeAllNeighborsFlat(int k, bool verbose) {
-    // Allocate host result arrays: n * k integers
+    const int BATCH_SIZE = 200000;  // vertices per batch (adjust to fit GPU memory)
+    int num_batches = (n + BATCH_SIZE - 1) / BATCH_SIZE;
+
     std::vector<int> h_indices(n * k);
     std::vector<float> h_dists(n * k);
 
-    // Prepare query_ids (all vertices)
-    thrust::device_vector<int> d_query_ids(n);
-    thrust::sequence(d_query_ids.begin(), d_query_ids.end());
+    // Temporary device arrays for one batch
+    int* d_batch_indices;
+    float* d_batch_dists;
+    cudaMalloc(&d_batch_indices, BATCH_SIZE * k * sizeof(int));
+    cudaMalloc(&d_batch_dists,   BATCH_SIZE * k * sizeof(float));
 
-    // Allocate device output arrays
-    int* d_indices;
-    float* d_dists;
-    cudaMalloc(&d_indices, n * k * sizeof(int));
-    cudaMalloc(&d_dists,  n * k * sizeof(float));
-
-    // Parameters
-    const int BLOCK_SIZE = 256;
-    const int TILE_SIZE = 1024;   // tile of points loaded into shared memory
-    int num_blocks = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
-
-    // Shared memory size: two arrays of double of size TILE_SIZE
-    size_t shared_mem = 2 * TILE_SIZE * sizeof(double);
+    size_t shared_mem = 2 * TILE_SIZE * sizeof(double);  // for s_x and s_y
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    // Dispatch kernel with template parameters (k, block size, tile size)
-    if (k == 1500) {
-        batchedKNN<1500, 256, 1024><<<num_blocks, BLOCK_SIZE, shared_mem>>>(
-            d_x, d_y, n,
-            thrust::raw_pointer_cast(d_query_ids.data()), n,
-            d_indices, d_dists);
-    } else {
-        // For other k, we would need to generate different template instances.
-        // For simplicity, we only support k=1500. In practice, k is fixed.
-        std::cerr << "k=" << k << " not supported in this kernel (only 1500)." << std::endl;
-        cudaFree(d_indices); cudaFree(d_dists);
-        return {};
+    for (int batch = 0; batch < num_batches; ++batch) {
+        int start_idx = batch * BATCH_SIZE;
+        int count = std::min(BATCH_SIZE, n - start_idx);
+
+        // Create query_ids for this batch on device
+        thrust::device_vector<int> d_query_ids(count);
+        thrust::sequence(d_query_ids.begin(), d_query_ids.end(), start_idx);
+
+        // Launch kernel for this batch
+        int blocks = (count + BLOCK_SIZE - 1) / BLOCK_SIZE;
+        if (k == 1500) {
+            batchedKNN<1500><<<blocks, BLOCK_SIZE, shared_mem>>>(
+                d_x, d_y, n,
+                thrust::raw_pointer_cast(d_query_ids.data()), count,
+                d_batch_indices, d_batch_dists);
+        } else {
+            std::cerr << "k=" << k << " not supported (only 1500)." << std::endl;
+            cudaFree(d_batch_indices); cudaFree(d_batch_dists);
+            return {};
+        }
+        cudaDeviceSynchronize();
+
+        // Copy results back to host
+        cudaMemcpy(h_indices.data() + start_idx * k, d_batch_indices,
+                   count * k * sizeof(int), cudaMemcpyDeviceToHost);
+        cudaMemcpy(h_dists.data() + start_idx * k, d_batch_dists,
+                   count * k * sizeof(float), cudaMemcpyDeviceToHost);
     }
 
-    cudaDeviceSynchronize();
     auto end = std::chrono::high_resolution_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    if (verbose) std::cout << "CUDA k‑NN (batched) took " << ms << " ms" << std::endl;
+    if (verbose) std::cout << "CUDA batched k‑NN took " << ms << " ms" << std::endl;
 
-    // Copy results back
-    cudaMemcpy(h_indices.data(), d_indices, n * k * sizeof(int), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_dists.data(),   d_dists,  n * k * sizeof(float), cudaMemcpyDeviceToHost);
-
-    cudaFree(d_indices);
-    cudaFree(d_dists);
-
-    return h_indices;  // flat array, row‑major
+    cudaFree(d_batch_indices);
+    cudaFree(d_batch_dists);
+    return h_indices;
 }
 
 std::vector<std::vector<int>> CudaNeighborFinder::computeAllNeighbors(int k, bool verbose) {

@@ -10,26 +10,21 @@ public:
     GridNeighborFinder(const std::vector<double>& x, const std::vector<double>& y);
     ~GridNeighborFinder();
 
-    // Returns flat array of size n * k (row‑major)
     std::vector<int> computeAllNeighborsFlat(int k, bool verbose = false);
-
-    // Convenience wrapper (returns vector of vectors)
     std::vector<std::vector<int>> computeAllNeighbors(int k, bool verbose = false);
 
 private:
-    double* d_x = nullptr;
-    double* d_y = nullptr;
+    float* d_x = nullptr;
+    float* d_y = nullptr;
     int n;
     std::vector<double> h_x, h_y;
     float min_x, max_x, min_y, max_y;
     float cell_size;
-    int grid_w, grid_h;
-    int grid_cells;
+    int grid_w, grid_h, grid_cells;
 
-    // Grid structures (CSR)
-    int* d_cell_offsets = nullptr;   // prefix sum of counts per cell (size grid_cells+1)
-    int* d_cell_data = nullptr;      // concatenated vertex indices (size n)
-    int* d_cell_counts = nullptr;    // temporary for counting
+    int* d_cell_offsets = nullptr;
+    int* d_cell_data = nullptr;
+    int* d_cell_counts = nullptr;
 
     void buildGrid();
 };
