@@ -4,6 +4,9 @@
 #include "../base/Timer.hpp"
 #include "Solution.hpp"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 namespace cobra {
 
@@ -27,61 +30,73 @@ namespace cobra {
             double value;
         };
 
-        auto savings = std::vector<Saving>();
+        // ---------- Parallel savings calculation ----------
+        std::vector<Saving> savings;
         savings.reserve(static_cast<unsigned long>(savings_num));
 
-        for (auto i = instance.get_customers_begin(); i < instance.get_customers_end(); i++) {
+#ifdef _OPENMP
+        int num_threads = omp_get_max_threads();
+        std::vector<std::vector<Saving>> thread_savings(num_threads);
 
-            for (auto n = 1u, added = 0u; added < static_cast<unsigned int>(neighbors_num) && n < instance.get_neighbors_of(i).size();
-                 n++) {
-
-                const auto j = instance.get_neighbors_of(i)[n];
-
-                if (i < j) {
-
-                    const double value = +instance.get_cost(i, instance.get_depot()) + instance.get_cost(instance.get_depot(), j) -
-                                         lambda * instance.get_cost(i, j);
-
-                    savings.push_back({i, j, value});
-
-                    added++;
+        #pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+            #pragma omp for schedule(dynamic)
+            for (auto i = instance.get_customers_begin(); i < instance.get_customers_end(); i++) {
+                for (auto n = 1u, added = 0u; added < static_cast<unsigned int>(neighbors_num) && n < instance.get_neighbors_of(i).size(); n++) {
+                    const auto j = instance.get_neighbors_of(i)[n];
+                    if (i < j) {
+                        const double value = instance.get_cost(i, instance.get_depot()) +
+                                             instance.get_cost(instance.get_depot(), j) -
+                                             lambda * instance.get_cost(i, j);
+                        thread_savings[tid].push_back({i, j, value});
+                        added++;
+                    }
                 }
             }
         }
 
+        // Merge thread‑local savings into global vector
+        for (int t = 0; t < num_threads; ++t) {
+            savings.insert(savings.end(), thread_savings[t].begin(), thread_savings[t].end());
+        }
+#else
+        // Serial fallback (if OpenMP not enabled)
+        for (auto i = instance.get_customers_begin(); i < instance.get_customers_end(); i++) {
+            for (auto n = 1u, added = 0u; added < static_cast<unsigned int>(neighbors_num) && n < instance.get_neighbors_of(i).size(); n++) {
+                const auto j = instance.get_neighbors_of(i)[n];
+                if (i < j) {
+                    const double value = instance.get_cost(i, instance.get_depot()) +
+                                         instance.get_cost(instance.get_depot(), j) -
+                                         lambda * instance.get_cost(i, j);
+                    savings.push_back({i, j, value});
+                    added++;
+                }
+            }
+        }
+#endif
 
+        // ---------- Sorting (sequential, but can be replaced later with TBB/CUDA) ----------
         std::sort(savings.begin(), savings.end(), [](const Saving &a, const Saving &b) { return a.value > b.value; });
 
+        // ---------- Sequential route merging ----------
 #ifdef VERBOSE
         Timer timer;
 #endif
-
         for (auto n = 0; n < static_cast<int>(savings.size()); ++n) {
-
             const auto &saving = savings[n];
-
             const auto i = saving.i;
             const auto j = saving.j;
-
             const auto iRoute = solution.get_route_index(i);
             const auto jRoute = solution.get_route_index(j);
-
-            if (iRoute == jRoute) {
-                continue;
-            }
-
+            if (iRoute == jRoute) continue;
             if (solution.get_last_customer(iRoute) == i && solution.get_first_customer(jRoute) == j &&
                 solution.get_route_load(iRoute) + solution.get_route_load(jRoute) <= instance.get_vehicle_capacity()) {
-
                 solution.append_route(iRoute, jRoute);
-
-
             } else if (solution.get_last_customer(jRoute) == j && solution.get_first_customer(iRoute) == i &&
                        solution.get_route_load(iRoute) + solution.get_route_load(jRoute) <= instance.get_vehicle_capacity()) {
-
                 solution.append_route(jRoute, iRoute);
             }
-
 #ifdef VERBOSE
             if (timer.elapsed_time<std::chrono::seconds>() > 2) {
                 std::cout << "Progress: " << 100.0 * (n + 1) / savings.size() << "%, Solution cost: " << solution.get_cost() << " \n";

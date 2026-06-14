@@ -93,11 +93,18 @@ int main(int argc, char* argv[]) {
 
     auto best_solution = cobra::Solution(instance, std::min(instance.get_vertices_num(), params.get_solution_cache_size()));
 
+    // Measure construction phase (Clarke & Wright) in milliseconds
+    auto constr_start = std::chrono::high_resolution_clock::now();
 #ifdef VERBOSE
     std::cout << "Running CLARKE&WRIGHT to generate an initial solution.\n";
     timer.reset();
 #endif
     cobra::clarke_and_wright(instance, best_solution, params.get_cw_lambda(), params.get_cw_neighbors());
+    auto constr_end = std::chrono::high_resolution_clock::now();
+    std::cout << "Construction phase (Clarke & Wright) took "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(constr_end - constr_start).count()
+              << " ms\n";
+
 #ifdef VERBOSE
     std::cout << "Done in " << timer.elapsed_time<std::chrono::seconds>() << " seconds.\n";
     std::cout << "Initial solution: obj = " << best_solution.get_cost() << ", n. of routes = " << best_solution.get_routes_num() << ".\n\n";

@@ -13,14 +13,12 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OPT_FLAGS}")
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-add_definitions(-DUSE_CUDA_NEIGHBORS)
-add_definitions(-DUSE_GRID_NEIGHBOR)   # enable the grid-based neighbor finder
-
 # Options
 option(ENABLE_VERBOSE "Enable verbose output" ON)
 option(ENABLE_GUI "Enable graphical interface" OFF)
 option(ENABLE_TIMELIMIT "Enable time limit termination" OFF)
 option(ENABLE_CUDA "Enable CUDA support" OFF)
+option(USE_GRID_NEIGHBOR "Use grid‑based CUDA neighbor finder (faster for large N)" OFF)
 
 message("-- Build options")
 if(ENABLE_VERBOSE)
@@ -49,15 +47,20 @@ endif()
 # OpenMP (mandatory for parallel preprocessing)
 find_package(OpenMP REQUIRED)
 
-# CUDA configuration (modern)
+# CUDA configuration
 if(ENABLE_CUDA)
-    enable_language(CUDA)
-    find_package(CUDAToolkit REQUIRED)
+    find_package(CUDA REQUIRED)
     message("--- CUDA ENABLED")
-    add_definitions(-DCUDA_ENABLED -DUSE_CUDA_NEIGHBORS)
+    add_definitions(-DCUDA_ENABLED)
+    add_definitions(-DUSE_CUDA_NEIGHBORS)
 
-    # Set CUDA architecture (adjust to your GPU, e.g., sm_61 for GTX 1080, sm_75 for RTX 2080, sm_86 for RTX 3080)
-    set(CUDA_ARCH "sm_75")   # for Tesla T4 (also works for V100, RTX 20xx)
+    if(USE_GRID_NEIGHBOR)
+        message("--- Grid neighbor finder ENABLED")
+        add_definitions(-DUSE_GRID_NEIGHBOR)
+    endif()
+
+    # Set CUDA architecture (adjust to your GPU)
+    set(CUDA_ARCH "sm_75") 
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 -arch=${CUDA_ARCH} --use_fast_math")
     set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
 else()
@@ -134,6 +137,12 @@ if(ENABLE_CUDA)
         cuda/CudaNeighborFinder.cu
         cuda/CudaNeighborFinder.hpp
     )
+    if(USE_GRID_NEIGHBOR)
+        list(APPEND SOURCES
+            cuda/GridNeighborFinder.cu
+            cuda/GridNeighborFinder.hpp
+        )
+    endif()
 endif()
 
 # Add executable
@@ -144,8 +153,8 @@ set_target_properties(filo2 PROPERTIES OUTPUT_NAME "filo2-HYBRID-CPU-GPU")
 target_link_libraries(filo2 PUBLIC ${LIBRARIES} OpenMP::OpenMP_CXX)
 
 if(ENABLE_CUDA)
-    # Link CUDA runtime library (modern target)
-    target_link_libraries(filo2 PUBLIC CUDA::cudart)
+    target_link_libraries(filo2 PUBLIC ${CUDA_LIBRARIES} cudart)
+    target_include_directories(filo2 PRIVATE ${CUDA_INCLUDE_DIRS})
 endif()
 
 # Ensure OpenMP flags are passed even if find_package is not perfect (fallback)
@@ -153,14 +162,14 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang
     target_compile_options(filo2 PRIVATE -fopenmp)
 endif()
 
-if(ENABLE_CUDA)
-    list(APPEND SOURCES
-        cuda/CudaNeighborFinder.cu
-        cuda/CudaNeighborFinder.hpp
-        cuda/GridNeighborFinder.cu
-        cuda/GridNeighborFinder.hpp
-    )
-    add_definitions(-DUSE_CUDA_NEIGHBORS)
-    # Optionally enable grid method
-    add_definitions(-DUSE_GRID_NEIGHBOR)
-endif()
+# Find OpenMP (required for construction phase)
+find_package(OpenMP REQUIRED)
+
+# Then, when linking the executable, add:
+target_link_libraries(filo2 PUBLIC OpenMP::OpenMP_CXX)
+
+
+
+# cd build
+# cmake .. -DENABLE_CUDA=ON -DUSE_GRID_NEIGHBOR=ON
+# make -j

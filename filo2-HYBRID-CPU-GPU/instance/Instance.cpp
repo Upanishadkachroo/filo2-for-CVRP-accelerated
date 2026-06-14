@@ -12,9 +12,10 @@
 #endif
 
 #ifdef USE_CUDA_NEIGHBORS
-    #include "../cuda/CudaNeighborFinder.hpp"
     #ifdef USE_GRID_NEIGHBOR
         #include "../cuda/GridNeighborFinder.hpp"
+    #else
+        #include "../cuda/CudaNeighborFinder.hpp"
     #endif
 #endif
 
@@ -42,35 +43,69 @@ namespace cobra {
 
 #ifdef USE_CUDA_NEIGHBORS
         const int N = get_vertices_num();
-        const bool use_grid = (N > 200000);   // threshold – tune as needed
+        // Choose method based on instance size (thresholds are tunable)
+        const int BRUTE_FORCE_MAX = 200000;   // use brute‑force CUDA for N <= 200k
+        const int GRID_MAX = 1000000;         // use grid CUDA for N <= 1M
 
+        if (N <= BRUTE_FORCE_MAX) {
+            // ---------- Brute‑force batched CUDA (good for small/medium instances) ----------
+            #ifdef USE_GRID_NEIGHBOR
+                // Even if grid is available, brute‑force may be faster for small N
+                cobra::CudaNeighborFinder gpu_finder(xcoords, ycoords);
+                neighbors = gpu_finder.computeAllNeighbors(neighbors_num, true);
+            #else
+                cobra::CudaNeighborFinder gpu_finder(xcoords, ycoords);
+                neighbors = gpu_finder.computeAllNeighbors(neighbors_num, true);
+            #endif
+        } 
         #ifdef USE_GRID_NEIGHBOR
-        if (use_grid) {
-            // ---------- Grid‑based CUDA neighbor finder (for large N) ----------
+        else if (N <= GRID_MAX) {
+            // ---------- Grid‑based CUDA (scales to large instances) ----------
             cobra::GridNeighborFinder gpu_finder(xcoords, ycoords);
             neighbors = gpu_finder.computeAllNeighbors(neighbors_num, true);
-        } else
+        }
         #endif
-        {
-            // ---------- Brute‑force batched CUDA neighbor finder (for small/medium N) ----------
-            cobra::CudaNeighborFinder gpu_finder(xcoords, ycoords);
-            neighbors = gpu_finder.computeAllNeighbors(neighbors_num, true);
+        else {
+            // ---------- Fallback to KDTree + OpenMP (CPU, no GPU memory issues) ----------
+            KDTree kd_tree(xcoords, ycoords);
+#ifdef VERBOSE
+            Timer timer;
+            int last_progress = -1;
+#endif
+            #pragma omp parallel for schedule(dynamic)
+            for (int i = get_vertices_begin(); i < get_vertices_end(); ++i) {
+                neighbors[i] = kd_tree.GetNearestNeighbors(xcoords[i], ycoords[i], neighbors_num);
+                if (neighbors[i][0] != i) {
+                    int n = 1;
+                    while (n < static_cast<int>(neighbors[i].size())) {
+                        if (neighbors[i][n] == i) break;
+                        ++n;
+                    }
+                    std::swap(neighbors[i][0], neighbors[i][n]);
+                }
+#ifdef VERBOSE
+                #pragma omp critical
+                {
+                    int progress = 100 * (i + 1) / get_vertices_num();
+                    if (timer.elapsed_time<std::chrono::milliseconds>() > 10000 && progress != last_progress) {
+                        std::cout << "Progress: " << progress << "%\n";
+                        timer.reset();
+                        last_progress = progress;
+                    }
+                }
+#endif
+            }
         }
 #else
-        // ---------- Original KDTree + OpenMP parallel queries ----------
+        // ---------- Original KDTree + OpenMP (no CUDA) ----------
         KDTree kd_tree(xcoords, ycoords);
-
 #ifdef VERBOSE
         Timer timer;
         int last_progress = -1;
 #endif
-
-        // Parallelize the neighbor generation loop
         #pragma omp parallel for schedule(dynamic)
         for (int i = get_vertices_begin(); i < get_vertices_end(); ++i) {
             neighbors[i] = kd_tree.GetNearestNeighbors(xcoords[i], ycoords[i], neighbors_num);
-
-            // Ensure the vertex itself is the first entry in its neighbor list
             if (neighbors[i][0] != i) {
                 int n = 1;
                 while (n < static_cast<int>(neighbors[i].size())) {
@@ -79,9 +114,7 @@ namespace cobra {
                 }
                 std::swap(neighbors[i][0], neighbors[i][n]);
             }
-
 #ifdef VERBOSE
-            // Thread‑safe progress reporting (every 10 seconds in milliseconds)
             #pragma omp critical
             {
                 int progress = 100 * (i + 1) / get_vertices_num();

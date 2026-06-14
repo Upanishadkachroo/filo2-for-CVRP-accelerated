@@ -1,37 +1,49 @@
-#ifndef GRID_NEIGHBOR_FINDER_HPP
-#define GRID_NEIGHBOR_FINDER_HPP
+#ifndef CUDA_NEIGHBOR_FINDER_HPP
+#define CUDA_NEIGHBOR_FINDER_HPP
 
 #include <vector>
 
 namespace cobra {
 
-class GridNeighborFinder {
+/**
+ * Brute‑force CUDA k‑nearest neighbour finder.
+ * Suitable for instances up to ~200,000 vertices.
+ * For larger instances, use KDTree+OpenMP fallback.
+ */
+class CudaNeighborFinder {
 public:
-    GridNeighborFinder(const std::vector<double>& x, const std::vector<double>& y);
-    ~GridNeighborFinder();
+    /**
+     * Constructor – copies coordinates to GPU.
+     * @param x vector of x coordinates (double)
+     * @param y vector of y coordinates (double)
+     */
+    CudaNeighborFinder(const std::vector<double>& x, const std::vector<double>& y);
 
-    // Returns flat array of size n * k (row‑major)
+    /// Destructor – frees GPU memory.
+    ~CudaNeighborFinder();
+
+    /**
+     * Compute k nearest neighbours for all vertices.
+     * @param k number of neighbours
+     * @param verbose print timing
+     * @return flat array of size n * k (row‑major: neighbours of vertex i start at i*k)
+     */
     std::vector<int> computeAllNeighborsFlat(int k, bool verbose = false);
 
-    // Convenience wrapper (returns vector of vectors)
+    /**
+     * Compute k nearest neighbours for all vertices.
+     * @param k number of neighbours
+     * @param verbose print timing
+     * @return vector of vectors (neighbours[i] = list of indices)
+     */
     std::vector<std::vector<int>> computeAllNeighbors(int k, bool verbose = false);
 
 private:
-    double* d_x = nullptr;
-    double* d_y = nullptr;
-    int n;
-    std::vector<double> h_x, h_y;
-    float min_x, max_x, min_y, max_y;
-    float cell_size;
-    int grid_w, grid_h;
-    int grid_cells;
-
-    // Grid structures (CSR)
-    int* d_cell_offsets = nullptr;   // prefix sum of counts per cell (size grid_cells+1)
-    int* d_cell_data = nullptr;      // concatenated vertex indices (size n)
-    int* d_cell_counts = nullptr;    // temporary for counting
-
-    void buildGrid();
+    float* d_x = nullptr;     // device x coordinates (float)
+    float* d_y = nullptr;     // device y coordinates (float)
+    int n;                    // number of vertices
+    std::vector<double> h_x;  // host copy (needed for potential reuse)
+    std::vector<double> h_y;
 };
 
 } // namespace cobra
