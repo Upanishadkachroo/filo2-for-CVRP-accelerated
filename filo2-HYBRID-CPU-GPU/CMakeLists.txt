@@ -144,7 +144,8 @@ target_link_libraries(filo2 PUBLIC ${LIBRARIES} OpenMP::OpenMP_CXX)
 
 if(ENABLE_CUDA)
     # Link CUDA runtime and libraries
-    target_link_libraries(filo2 PUBLIC ${CUDA_LIBRARIES} cudart)
+    # target_link_libraries(filo2 PUBLIC ${CUDA_LIBRARIES} cudart)
+    target_link_libraries(filo2 PUBLIC ${CUDA_LIBRARIES})
     # If using thrust, may need to include CUDA toolkit path
     target_include_directories(filo2 PRIVATE ${CUDA_INCLUDE_DIRS})
 endif()
