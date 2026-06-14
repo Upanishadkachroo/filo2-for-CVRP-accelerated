@@ -1,0 +1,11 @@
+cache clear command - sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'
+
+without cuda (kdtree + openmp)
+cd build
+cmake .. -DENABLE_CUDA=OFF
+make -j
+
+with cuda (brute force)
+cd build
+cmake .. -DENABLE_CUDA=ON
+make -j

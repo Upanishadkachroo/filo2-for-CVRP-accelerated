@@ -11,6 +11,10 @@
 #include <omp.h>
 #endif
 
+#ifdef USE_CUDA_NEIGHBORS
+#include "../cuda/CudaNeighborFinder.hpp"
+#endif
+
 namespace cobra {
 
     std::optional<Instance> Instance::make(const std::string& filepath, int neighbors_num) {
@@ -33,7 +37,12 @@ namespace cobra {
 
         neighbors.resize(get_vertices_num());
 
-        // Build KD‑tree (parallelized inside KDTree constructor)
+#ifdef USE_CUDA_NEIGHBORS
+        // ---------- CUDA accelerated brute‑force neighbor finder ----------
+        cobra::CudaNeighborFinder gpu_finder(xcoords, ycoords);
+        neighbors = gpu_finder.computeAllNeighbors(neighbors_num, true);  // true = verbose progress
+#else
+        // ---------- Original KDTree + OpenMP parallel queries ----------
         KDTree kd_tree(xcoords, ycoords);
 
 #ifdef VERBOSE
@@ -69,6 +78,7 @@ namespace cobra {
             }
 #endif
         }
+#endif // USE_CUDA_NEIGHBORS
     }
 
 } // namespace cobra

@@ -17,6 +17,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 option(ENABLE_VERBOSE "Enable verbose output" ON)
 option(ENABLE_GUI "Enable graphical interface" OFF)
 option(ENABLE_TIMELIMIT "Enable time limit termination" OFF)
+option(ENABLE_CUDA "Enable CUDA support" OFF)
 
 message("-- Build options")
 if(ENABLE_VERBOSE)
@@ -45,13 +46,19 @@ endif()
 # OpenMP (mandatory for parallel preprocessing)
 find_package(OpenMP REQUIRED)
 
-# Optional: CUDA (for future GPU acceleration)
-option(ENABLE_CUDA "Enable CUDA support" OFF)
+# CUDA configuration
 if(ENABLE_CUDA)
     find_package(CUDA REQUIRED)
     message("--- CUDA ENABLED")
     add_definitions(-DCUDA_ENABLED)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CUDA_HOST_FLAGS}")
+    add_definitions(-DUSE_CUDA_NEIGHBORS)   # <-- this enables the CUDA path in Instance.cpp
+
+    # Set CUDA architecture (adjust to your GPU, e.g., sm_61 for GTX 1080, sm_75 for RTX 2080, sm_86 for RTX 3080)
+    set(CUDA_ARCH "sm_61")   # common for laptop GPUs; change as needed
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 -arch=${CUDA_ARCH} --use_fast_math")
+
+    # Optionally, if you want to keep host compiler flags for CUDA
+    set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
 else()
     message("--- CUDA DISABLED")
 endif()
@@ -120,6 +127,14 @@ set(SOURCES
     solution/Solution.cpp
 )
 
+# Add CUDA sources if enabled
+if(ENABLE_CUDA)
+    list(APPEND SOURCES
+        cuda/CudaNeighborFinder.cu
+        cuda/CudaNeighborFinder.hpp
+    )
+endif()
+
 # Add executable
 add_executable(filo2 ${SOURCES})
 set_target_properties(filo2 PROPERTIES OUTPUT_NAME "filo2-HYBRID-CPU-GPU")
@@ -128,8 +143,10 @@ set_target_properties(filo2 PROPERTIES OUTPUT_NAME "filo2-HYBRID-CPU-GPU")
 target_link_libraries(filo2 PUBLIC ${LIBRARIES} OpenMP::OpenMP_CXX)
 
 if(ENABLE_CUDA)
-    target_link_libraries(filo2 PUBLIC ${CUDA_LIBRARIES})
-    set_target_properties(filo2 PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+    # Link CUDA runtime and libraries
+    target_link_libraries(filo2 PUBLIC ${CUDA_LIBRARIES} cudart)
+    # If using thrust, may need to include CUDA toolkit path
+    target_include_directories(filo2 PRIVATE ${CUDA_INCLUDE_DIRS})
 endif()
 
 # Ensure OpenMP flags are passed even if find_package is not perfect (fallback)
