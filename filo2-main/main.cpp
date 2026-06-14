@@ -1,5 +1,5 @@
 #include <fstream>
-
+#include <chrono>
 #include "Parameters.hpp"
 #include "base/PrettyPrinter.hpp"
 #include "base/Timer.hpp"
@@ -22,9 +22,6 @@ auto get_basename(const std::string& pathname) -> std::string {
     return {std::find_if(pathname.rbegin(), pathname.rend(), [](char c) { return c == '/'; }).base(), pathname.end()};
 }
 
-
-// Few notes:
-// - Inputs are never checked when the solver is compiled in release mode. There are just a lot of assertions checked in debug mode.
 int main(int argc, char* argv[]) {
 
 #ifndef NDEBUG
@@ -57,11 +54,17 @@ int main(int argc, char* argv[]) {
 
     auto best_solution = cobra::Solution(instance, std::min(instance.get_vertices_num(), params.get_solution_cache_size()));
 
+    // --- Measure Clarke & Wright construction time (in seconds) ---
+    auto constr_start = std::chrono::high_resolution_clock::now();
 #ifdef VERBOSE
     std::cout << "Running CLARKE&WRIGHT to generate an initial solution.\n";
     timer.reset();
 #endif
     cobra::clarke_and_wright(instance, best_solution, params.get_cw_lambda(), params.get_cw_neighbors());
+    auto constr_end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> constr_sec = constr_end - constr_start;
+    std::cout << "Construction phase (Clarke & Wright) took " << constr_sec.count() << " seconds.\n";
+
 #ifdef VERBOSE
     std::cout << "Done in " << timer.elapsed_time<std::chrono::seconds>() << " seconds.\n";
     std::cout << "Initial solution: obj = " << best_solution.get_cost() << ", n. of routes = " << best_solution.get_routes_num() << ".\n\n";
@@ -87,7 +90,6 @@ int main(int argc, char* argv[]) {
     std::cout << "(approx. " << move_gen_perc << "%)\n\n";
     std::cout << std::defaultfloat;
 #endif
-
 
 #ifdef VERBOSE
     std::cout << "Computing a greedy upper bound on the n. of routes.\n";
@@ -122,7 +124,6 @@ int main(int argc, char* argv[]) {
         std::cout << "Done in " << timer.elapsed_time<std::chrono::seconds>() << " seconds.\n\n";
 #endif
     }
-
 
     auto rvnd0 = cobra::RandomizedVariableNeighborhoodDescent(
         instance, move_generators,
@@ -201,7 +202,6 @@ int main(int argc, char* argv[]) {
     std::cout << "Simulated annealing temperature goes from " << sa_initial_temperature << " to " << sa_final_temperature << ".\n\n";
 #endif
 
-
 #ifdef VERBOSE
     #ifdef TIMELIMIT
     std::cout << "Running COREOPT for " << std::max(0, coreopt_seconds) << " seconds.\n";
@@ -231,15 +231,12 @@ int main(int argc, char* argv[]) {
 
     cobra::Welford welford_rr;
     cobra::Welford welford_ls;
-
 #endif
-
 
 #ifdef GUI
     auto renderer = Renderer(instance, neighbor.get_cost());
 #endif
 
-    // Cost of the working solution, from which neighbor is obtained after shaking and local search.
     double reference_solution_cost = neighbor.get_cost();
 
 #ifdef TIMELIMIT
@@ -263,7 +260,6 @@ int main(int argc, char* argv[]) {
 #endif
 
         const auto walk_seed = rr.apply(neighbor, omega);
-
 
 #ifdef VERBOSE
         const auto rr_time = rr_timer.elapsed_time<std::chrono::microseconds>();
@@ -294,7 +290,6 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef GUI
-
         const auto local_optimum_cost = neighbor.get_cost();
 #endif
 
@@ -330,16 +325,13 @@ int main(int argc, char* argv[]) {
 
         if (neighbor.get_cost() < best_solution.get_cost()) {
 
-            // best_solution = solution;
-
             improved_best_solution = true;
 
             neighbor.apply_do_list2(best_solution);
-            neighbor.apply_do_list1(best_solution);  // latest changes
+            neighbor.apply_do_list1(best_solution);
             neighbor.clear_do_list2();
 
             assert(best_solution == neighbor);
-
 
             gamma_vertices.clear();
             for (auto i = neighbor.get_svc_begin(); i != neighbor.get_svc_end(); i = neighbor.get_svc_next(i)) {
@@ -450,7 +442,6 @@ int main(int argc, char* argv[]) {
             printer.print(progress, iter + 1, best_solution.get_cost(), best_solution.get_routes_num(), avg_iters_sec, remaining_sec,
                           welford_rr.get_mean(), welford_ls.get_mean(), gamma_mean, omega_mean, sa.get_temperature(elapsed_time_ms));
     #else
-
             const auto progress = 100.0 * (iter + 1.0) / coreopt_iterations;
             const auto elapsed_seconds = coreopt_timer.elapsed_time<std::chrono::seconds>();
             const auto iter_per_second = static_cast<double>(iter + 1) / (static_cast<double>(elapsed_seconds) + 0.01);
