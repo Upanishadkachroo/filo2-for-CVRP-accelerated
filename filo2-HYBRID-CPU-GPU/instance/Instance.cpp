@@ -12,11 +12,7 @@
 #endif
 
 #ifdef USE_CUDA_NEIGHBORS
-    #ifdef USE_GRID_NEIGHBOR
-        #include "../cuda/GridNeighborFinder.hpp"
-    #else
-        #include "../cuda/CudaNeighborFinder.hpp"
-    #endif
+    #include "../cuda/CudaNeighborFinder.hpp"
 #endif
 
 namespace cobra {
@@ -43,38 +39,24 @@ namespace cobra {
 
 #ifdef USE_CUDA_NEIGHBORS
         const int N = get_vertices_num();
-        // Choose method based on instance size (thresholds are tunable)
-        const int BRUTE_FORCE_MAX = 200000;   // use brute‑force CUDA for N <= 200k
-        const int GRID_MAX = 1000000;         // use grid CUDA for N <= 1M
-
-        if (N <= BRUTE_FORCE_MAX) {
-            // ---------- Brute‑force batched CUDA (good for small/medium instances) ----------
-            #ifdef USE_GRID_NEIGHBOR
-                // Even if grid is available, brute‑force may be faster for small N
-                cobra::CudaNeighborFinder gpu_finder(xcoords, ycoords);
-                neighbors = gpu_finder.computeAllNeighbors(neighbors_num, true);
-            #else
-                cobra::CudaNeighborFinder gpu_finder(xcoords, ycoords);
-                neighbors = gpu_finder.computeAllNeighbors(neighbors_num, true);
-            #endif
-        } 
-        #ifdef USE_GRID_NEIGHBOR
-        else if (N <= GRID_MAX) {
-            // ---------- Grid‑based CUDA (scales to large instances) ----------
-            cobra::GridNeighborFinder gpu_finder(xcoords, ycoords);
+        if (N <= 200000) {
+            // ---------- CUDA brute‑force for moderate sizes ----------
+            cobra::CudaNeighborFinder gpu_finder(xcoords, ycoords);
             neighbors = gpu_finder.computeAllNeighbors(neighbors_num, true);
-        }
-        #endif
-        else {
-            // ---------- Fallback to KDTree + OpenMP (CPU, no GPU memory issues) ----------
+        } else {
+            // ---------- Fallback to KDTree + OpenMP for large instances ----------
             KDTree kd_tree(xcoords, ycoords);
+
 #ifdef VERBOSE
             Timer timer;
             int last_progress = -1;
 #endif
+
             #pragma omp parallel for schedule(dynamic)
             for (int i = get_vertices_begin(); i < get_vertices_end(); ++i) {
                 neighbors[i] = kd_tree.GetNearestNeighbors(xcoords[i], ycoords[i], neighbors_num);
+
+                // Ensure the vertex itself is the first entry in its neighbor list
                 if (neighbors[i][0] != i) {
                     int n = 1;
                     while (n < static_cast<int>(neighbors[i].size())) {
@@ -83,6 +65,7 @@ namespace cobra {
                     }
                     std::swap(neighbors[i][0], neighbors[i][n]);
                 }
+
 #ifdef VERBOSE
                 #pragma omp critical
                 {
@@ -97,15 +80,18 @@ namespace cobra {
             }
         }
 #else
-        // ---------- Original KDTree + OpenMP (no CUDA) ----------
+        // ---------- Original KDTree + OpenMP (CUDA disabled) ----------
         KDTree kd_tree(xcoords, ycoords);
+
 #ifdef VERBOSE
         Timer timer;
         int last_progress = -1;
 #endif
+
         #pragma omp parallel for schedule(dynamic)
         for (int i = get_vertices_begin(); i < get_vertices_end(); ++i) {
             neighbors[i] = kd_tree.GetNearestNeighbors(xcoords[i], ycoords[i], neighbors_num);
+
             if (neighbors[i][0] != i) {
                 int n = 1;
                 while (n < static_cast<int>(neighbors[i].size())) {
@@ -114,6 +100,7 @@ namespace cobra {
                 }
                 std::swap(neighbors[i][0], neighbors[i][n]);
             }
+
 #ifdef VERBOSE
             #pragma omp critical
             {

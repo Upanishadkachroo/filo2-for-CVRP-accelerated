@@ -1,26 +1,37 @@
 cmake_minimum_required(VERSION 3.22)
-project(filo2)
+
+# CUDA language must be declared in project() or via enable_language() BEFORE
+# any find_package calls that depend on it. We conditionally enable it below.
+# First declare the project with just CXX, then add CUDA if requested.
+project(filo2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# ---------------------------------------------------------------------------
 # Compiler options
+# ---------------------------------------------------------------------------
 set(WARNING_FLAGS "-Wall -Wextra -Wpedantic -Wuninitialized")
 set(OPT_FLAGS "-O3 -march=native -flto=auto")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -fsanitize=undefined -fsanitize-address-use-after-scope -fno-omit-frame-pointer -g")
+set(CMAKE_CXX_FLAGS_DEBUG
+    "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -fsanitize=undefined \
+     -fsanitize-address-use-after-scope -fno-omit-frame-pointer -g")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OPT_FLAGS}")
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-# Options
-option(ENABLE_VERBOSE "Enable verbose output" ON)
-option(ENABLE_GUI "Enable graphical interface" OFF)
-option(ENABLE_TIMELIMIT "Enable time limit termination" OFF)
-option(ENABLE_CUDA "Enable CUDA support" OFF)
-option(USE_GRID_NEIGHBOR "Use grid‑based CUDA neighbor finder (faster for large N)" OFF)
+# ---------------------------------------------------------------------------
+# Build options
+# ---------------------------------------------------------------------------
+option(ENABLE_VERBOSE    "Enable verbose output"                          ON)
+option(ENABLE_GUI        "Enable graphical interface"                     OFF)
+option(ENABLE_TIMELIMIT  "Enable time limit termination"                  OFF)
+option(ENABLE_CUDA       "Enable CUDA support"                            OFF)
+option(USE_GRID_NEIGHBOR "Use grid-based CUDA neighbor finder (large N)"  OFF)
 
 message("-- Build options")
+
 if(ENABLE_VERBOSE)
     message("--- Verbose output ENABLED")
     add_definitions(-DVERBOSE)
@@ -44,30 +55,48 @@ else()
     message("--- Time limit termination DISABLED")
 endif()
 
+# ---------------------------------------------------------------------------
 # OpenMP (mandatory for parallel preprocessing)
+# ---------------------------------------------------------------------------
 find_package(OpenMP REQUIRED)
 
-# CUDA configuration
+# ---------------------------------------------------------------------------
+# CUDA configuration — modern CMake approach (no deprecated FindCUDA)
+# ---------------------------------------------------------------------------
 if(ENABLE_CUDA)
-    find_package(CUDA REQUIRED)
-    message("--- CUDA ENABLED")
-    add_definitions(-DCUDA_ENABLED)
-    add_definitions(-DUSE_CUDA_NEIGHBORS)
+    # enable_language(CUDA) must be called before any CUDA-related variables
+    # are set; it activates nvcc as the compiler for .cu translation units.
+    enable_language(CUDA)
 
-    if(USE_GRID_NEIGHBOR)
-        message("--- Grid neighbor finder ENABLED")
-        add_definitions(-DUSE_GRID_NEIGHBOR)
+    # CUDAToolkit replaces the old find_package(CUDA) / FindCUDA module.
+    find_package(CUDAToolkit REQUIRED)
+
+    message("--- CUDA ENABLED (toolkit: ${CUDAToolkit_VERSION})")
+    add_definitions(-DCUDA_ENABLED -DUSE_CUDA_NEIGHBORS)
+
+    # CUDA language standard
+    set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
+    # Target GPU architecture — Colab Tesla T4 = sm_75.
+    # Adjust if you run on a different GPU:
+    #   A100  -> 80,  V100 -> 70,  RTX 30xx -> 86,  RTX 40xx -> 89
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        set(CMAKE_CUDA_ARCHITECTURES 75)
     endif()
 
-    # Set CUDA architecture (adjust to your GPU)
-    set(CUDA_ARCH "sm_75") 
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 -arch=${CUDA_ARCH} --use_fast_math")
-    set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
+    # nvcc optimisation flags (host-side -O3 comes from CXX flags above)
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --use_fast_math")
+
+    # Make sure nvcc uses the same host compiler as CMake's CXX compiler
+    set(CMAKE_CUDA_HOST_COMPILER "${CMAKE_CXX_COMPILER}")
 else()
     message("--- CUDA DISABLED")
 endif()
 
-# Collect source files (explicit list)
+# ---------------------------------------------------------------------------
+# Source files
+# ---------------------------------------------------------------------------
 set(SOURCES
     main.cpp
     Parameters.hpp
@@ -131,7 +160,7 @@ set(SOURCES
     solution/Solution.cpp
 )
 
-# Add CUDA sources if enabled
+# CUDA-specific sources appended only when CUDA is enabled
 if(ENABLE_CUDA)
     list(APPEND SOURCES
         cuda/CudaNeighborFinder.cu
@@ -142,34 +171,35 @@ if(ENABLE_CUDA)
             cuda/GridNeighborFinder.cu
             cuda/GridNeighborFinder.hpp
         )
+        add_definitions(-DUSE_GRID_NEIGHBOR)
     endif()
 endif()
 
-# Add executable
+# ---------------------------------------------------------------------------
+# Executable target
+# ---------------------------------------------------------------------------
 add_executable(filo2 ${SOURCES})
 set_target_properties(filo2 PROPERTIES OUTPUT_NAME "filo2-HYBRID-CPU-GPU")
 
+# ---------------------------------------------------------------------------
 # Link libraries
+# ---------------------------------------------------------------------------
 target_link_libraries(filo2 PUBLIC ${LIBRARIES} OpenMP::OpenMP_CXX)
 
 if(ENABLE_CUDA)
-    target_link_libraries(filo2 PUBLIC ${CUDA_LIBRARIES} cudart)
-    target_include_directories(filo2 PRIVATE ${CUDA_INCLUDE_DIRS})
+    # CUDA::cudart is provided by find_package(CUDAToolkit); no manual path needed.
+    target_link_libraries(filo2 PUBLIC CUDA::cudart)
+
+    # Expose CUDA headers to all translation units (needed when .cpp files
+    # include .cuh or cuda_runtime.h directly).
+    target_include_directories(filo2 PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
+
+    # Tell nvcc to compile device code as relocatable so it can be linked with
+    # host objects produced by g++.
+    set_target_properties(filo2 PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 endif()
 
-# Ensure OpenMP flags are passed even if find_package is not perfect (fallback)
+# OpenMP compile flag fallback (belt-and-suspenders for older CMake generators)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_compile_options(filo2 PRIVATE -fopenmp)
 endif()
-
-# Find OpenMP (required for construction phase)
-find_package(OpenMP REQUIRED)
-
-# Then, when linking the executable, add:
-target_link_libraries(filo2 PUBLIC OpenMP::OpenMP_CXX)
-
-
-
-# cd build
-# cmake .. -DENABLE_CUDA=ON -DUSE_GRID_NEIGHBOR=ON
-# make -j
