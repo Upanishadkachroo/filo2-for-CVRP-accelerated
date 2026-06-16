@@ -60,10 +60,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU
+CMAKE_SOURCE_DIR = /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build
+CMAKE_BINARY_DIR = /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -90,9 +90,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/upanishad/Desktop/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -155,6 +155,54 @@ base/KDTree.s: base/KDTree.cpp.s
 base/KDTree.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/base/KDTree.cpp.s
 .PHONY : base/KDTree.cpp.s
+
+cuda/CudaNeighborFinder.o: cuda/CudaNeighborFinder.cu.o
+.PHONY : cuda/CudaNeighborFinder.o
+
+# target to build an object file
+cuda/CudaNeighborFinder.cu.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o
+.PHONY : cuda/CudaNeighborFinder.cu.o
+
+cuda/CudaNeighborFinder.i: cuda/CudaNeighborFinder.cu.i
+.PHONY : cuda/CudaNeighborFinder.i
+
+# target to preprocess a source file
+cuda/CudaNeighborFinder.cu.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.i
+.PHONY : cuda/CudaNeighborFinder.cu.i
+
+cuda/CudaNeighborFinder.s: cuda/CudaNeighborFinder.cu.s
+.PHONY : cuda/CudaNeighborFinder.s
+
+# target to generate assembly for a file
+cuda/CudaNeighborFinder.cu.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.s
+.PHONY : cuda/CudaNeighborFinder.cu.s
+
+cuda/uniform_grid.o: cuda/uniform_grid.cu.o
+.PHONY : cuda/uniform_grid.o
+
+# target to build an object file
+cuda/uniform_grid.cu.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o
+.PHONY : cuda/uniform_grid.cu.o
+
+cuda/uniform_grid.i: cuda/uniform_grid.cu.i
+.PHONY : cuda/uniform_grid.i
+
+# target to preprocess a source file
+cuda/uniform_grid.cu.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/uniform_grid.cu.i
+.PHONY : cuda/uniform_grid.cu.i
+
+cuda/uniform_grid.s: cuda/uniform_grid.cu.s
+.PHONY : cuda/uniform_grid.s
+
+# target to generate assembly for a file
+cuda/uniform_grid.cu.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/uniform_grid.cu.s
+.PHONY : cuda/uniform_grid.cu.s
 
 instance/Instance.o: instance/Instance.cpp.o
 .PHONY : instance/Instance.o
@@ -264,6 +312,12 @@ help:
 	@echo "... base/KDTree.o"
 	@echo "... base/KDTree.i"
 	@echo "... base/KDTree.s"
+	@echo "... cuda/CudaNeighborFinder.o"
+	@echo "... cuda/CudaNeighborFinder.i"
+	@echo "... cuda/CudaNeighborFinder.s"
+	@echo "... cuda/uniform_grid.o"
+	@echo "... cuda/uniform_grid.i"
+	@echo "... cuda/uniform_grid.s"
 	@echo "... instance/Instance.o"
 	@echo "... instance/Instance.i"
 	@echo "... instance/Instance.s"
