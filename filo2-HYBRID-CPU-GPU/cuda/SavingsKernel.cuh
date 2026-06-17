@@ -3,16 +3,15 @@
 
 #include <vector>
 #include "../instance/Instance.hpp"
+#include "../instance/Saving.hpp"
 
 namespace cobra {
 
-struct SavingGPU {
-    float key;      // negated savings value (for ascending sort)
-    uint64_t value; // packed (i << 32) | j
-};
-
-// Main GPU entry point: computes and sorts all savings, returns vector sorted descending by savings.
-bool computeSavingsGPU(const Instance& instance, int neighbors_num,
+// Compute all savings and sort descending using GPU.
+// Returns true on success; output vector is sorted by value descending.
+bool computeSavingsGPU(const Instance& instance,
+                       int neighbors_num,
+                       double lambda,
                        std::vector<Saving>& savings);
 
 } // namespace cobra

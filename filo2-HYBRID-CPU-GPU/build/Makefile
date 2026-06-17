@@ -180,6 +180,30 @@ cuda/CudaNeighborFinder.cu.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.s
 .PHONY : cuda/CudaNeighborFinder.cu.s
 
+cuda/SavingsKernel.o: cuda/SavingsKernel.cu.o
+.PHONY : cuda/SavingsKernel.o
+
+# target to build an object file
+cuda/SavingsKernel.cu.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o
+.PHONY : cuda/SavingsKernel.cu.o
+
+cuda/SavingsKernel.i: cuda/SavingsKernel.cu.i
+.PHONY : cuda/SavingsKernel.i
+
+# target to preprocess a source file
+cuda/SavingsKernel.cu.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.i
+.PHONY : cuda/SavingsKernel.cu.i
+
+cuda/SavingsKernel.s: cuda/SavingsKernel.cu.s
+.PHONY : cuda/SavingsKernel.s
+
+# target to generate assembly for a file
+cuda/SavingsKernel.cu.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.s
+.PHONY : cuda/SavingsKernel.cu.s
+
 cuda/uniform_grid.o: cuda/uniform_grid.cu.o
 .PHONY : cuda/uniform_grid.o
 
@@ -315,6 +339,9 @@ help:
 	@echo "... cuda/CudaNeighborFinder.o"
 	@echo "... cuda/CudaNeighborFinder.i"
 	@echo "... cuda/CudaNeighborFinder.s"
+	@echo "... cuda/SavingsKernel.o"
+	@echo "... cuda/SavingsKernel.i"
+	@echo "... cuda/SavingsKernel.s"
 	@echo "... cuda/uniform_grid.o"
 	@echo "... cuda/uniform_grid.i"
 	@echo "... cuda/uniform_grid.s"

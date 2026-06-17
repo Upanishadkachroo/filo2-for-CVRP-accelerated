@@ -147,7 +147,7 @@ CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o: CMakeFiles/filo2.dir/includes
 CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o: /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/cuda/CudaNeighborFinder.cu
 CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o: CMakeFiles/filo2.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CUDA object CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o"
-	/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler $(CUDA_DEFINES) $(CUDA_INCLUDES) $(CUDA_FLAGS) -MD -MT CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o -MF CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o.d -x cu -rdc=true -c /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/cuda/CudaNeighborFinder.cu -o CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o
+	/usr/local/cuda-13.2/bin/nvcc -forward-unknown-to-host-compiler $(CUDA_DEFINES) $(CUDA_INCLUDES) $(CUDA_FLAGS) -MD -MT CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o -MF CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o.d -x cu -rdc=true -c /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/cuda/CudaNeighborFinder.cu -o CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o
 
 CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CUDA source to CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.i"
@@ -162,7 +162,7 @@ CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o: CMakeFiles/filo2.dir/includes_CUDA.
 CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o: /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/cuda/uniform_grid.cu
 CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o: CMakeFiles/filo2.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CUDA object CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o"
-	/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler $(CUDA_DEFINES) $(CUDA_INCLUDES) $(CUDA_FLAGS) -MD -MT CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o -MF CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o.d -x cu -rdc=true -c /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/cuda/uniform_grid.cu -o CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o
+	/usr/local/cuda-13.2/bin/nvcc -forward-unknown-to-host-compiler $(CUDA_DEFINES) $(CUDA_INCLUDES) $(CUDA_FLAGS) -MD -MT CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o -MF CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o.d -x cu -rdc=true -c /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/cuda/uniform_grid.cu -o CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o
 
 CMakeFiles/filo2.dir/cuda/uniform_grid.cu.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CUDA source to CMakeFiles/filo2.dir/cuda/uniform_grid.cu.i"
@@ -170,6 +170,21 @@ CMakeFiles/filo2.dir/cuda/uniform_grid.cu.i: cmake_force
 
 CMakeFiles/filo2.dir/cuda/uniform_grid.cu.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CUDA source to assembly CMakeFiles/filo2.dir/cuda/uniform_grid.cu.s"
+	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_CUDA_CREATE_ASSEMBLY_SOURCE
+
+CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o: CMakeFiles/filo2.dir/flags.make
+CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o: CMakeFiles/filo2.dir/includes_CUDA.rsp
+CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o: /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/cuda/SavingsKernel.cu
+CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o: CMakeFiles/filo2.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CUDA object CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o"
+	/usr/local/cuda-13.2/bin/nvcc -forward-unknown-to-host-compiler $(CUDA_DEFINES) $(CUDA_INCLUDES) $(CUDA_FLAGS) -MD -MT CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o -MF CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o.d -x cu -rdc=true -c /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/cuda/SavingsKernel.cu -o CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o
+
+CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CUDA source to CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.i"
+	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_CUDA_CREATE_PREPROCESSED_SOURCE
+
+CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CUDA source to assembly CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.s"
 	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_CUDA_CREATE_ASSEMBLY_SOURCE
 
 # Object files for target filo2
@@ -180,7 +195,8 @@ filo2_OBJECTS = \
 "CMakeFiles/filo2.dir/instance/Parser.cpp.o" \
 "CMakeFiles/filo2.dir/solution/Solution.cpp.o" \
 "CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o" \
-"CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o"
+"CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o" \
+"CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o"
 
 # External object files for target filo2
 filo2_EXTERNAL_OBJECTS =
@@ -192,6 +208,7 @@ CMakeFiles/filo2.dir/cmake_device_link.o: CMakeFiles/filo2.dir/instance/Parser.c
 CMakeFiles/filo2.dir/cmake_device_link.o: CMakeFiles/filo2.dir/solution/Solution.cpp.o
 CMakeFiles/filo2.dir/cmake_device_link.o: CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o
 CMakeFiles/filo2.dir/cmake_device_link.o: CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o
+CMakeFiles/filo2.dir/cmake_device_link.o: CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o
 CMakeFiles/filo2.dir/cmake_device_link.o: CMakeFiles/filo2.dir/build.make
 CMakeFiles/filo2.dir/cmake_device_link.o: /usr/local/cuda-13.2/targets/x86_64-linux/lib/libcudart.so
 CMakeFiles/filo2.dir/cmake_device_link.o: /usr/lib/gcc/x86_64-linux-gnu/13/libgomp.so
@@ -199,7 +216,7 @@ CMakeFiles/filo2.dir/cmake_device_link.o: /usr/lib/x86_64-linux-gnu/libpthread.a
 CMakeFiles/filo2.dir/cmake_device_link.o: CMakeFiles/filo2.dir/deviceLinkLibs.rsp
 CMakeFiles/filo2.dir/cmake_device_link.o: CMakeFiles/filo2.dir/deviceObjects1.rsp
 CMakeFiles/filo2.dir/cmake_device_link.o: CMakeFiles/filo2.dir/dlink.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Linking CUDA device code CMakeFiles/filo2.dir/cmake_device_link.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Linking CUDA device code CMakeFiles/filo2.dir/cmake_device_link.o"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/filo2.dir/dlink.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -214,7 +231,8 @@ filo2_OBJECTS = \
 "CMakeFiles/filo2.dir/instance/Parser.cpp.o" \
 "CMakeFiles/filo2.dir/solution/Solution.cpp.o" \
 "CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o" \
-"CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o"
+"CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o" \
+"CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o"
 
 # External object files for target filo2
 filo2_EXTERNAL_OBJECTS =
@@ -226,13 +244,14 @@ filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/instance/Parser.cpp.o
 filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/solution/Solution.cpp.o
 filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o
 filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o
+filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o
 filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/build.make
 filo2-HYBRID-CPU-GPU: /usr/local/cuda-13.2/targets/x86_64-linux/lib/libcudart.so
 filo2-HYBRID-CPU-GPU: /usr/lib/gcc/x86_64-linux-gnu/13/libgomp.so
 filo2-HYBRID-CPU-GPU: /usr/lib/x86_64-linux-gnu/libpthread.a
 filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/cmake_device_link.o
 filo2-HYBRID-CPU-GPU: CMakeFiles/filo2.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Linking CXX executable filo2-HYBRID-CPU-GPU"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Linking CXX executable filo2-HYBRID-CPU-GPU"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/filo2.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

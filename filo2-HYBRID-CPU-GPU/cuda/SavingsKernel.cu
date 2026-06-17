@@ -5,18 +5,18 @@
 #include <thrust/scan.h>
 #include <thrust/execution_policy.h>
 #include <thrust/copy.h>
-#include <vector>
+#include <cstdint>
+#include <cmath>
 #include <queue>
-#include <algorithm>
 #include <cassert>
 
 namespace cobra {
 
 // ------------------------------------------------------------------
-// Device: count valid neighbours (j > i) for each customer i
+// Device: count valid neighbours (j > i) for each customer in chunk
 // ------------------------------------------------------------------
 __global__ void countValidNeighborsKernel(
-    const int* __restrict__ neighbors,   // flat neighbor list, size N * maxNeighbors
+    const int* __restrict__ neighbors,   // flat list, size N * maxNeighbors
     int N,
     int maxNeighbors,
     int* __restrict__ counts) {
@@ -37,14 +37,15 @@ __global__ void countValidNeighborsKernel(
 // Device: fill keys and values for valid (i,j) pairs
 // ------------------------------------------------------------------
 __global__ void fillSavingsKernel(
-    const float* __restrict__ x,           // all x coordinates
+    const float* __restrict__ x,
     const float* __restrict__ y,
     const int* __restrict__ neighbors,
     int N,
     int maxNeighbors,
     const int* __restrict__ offsets,       // prefix sum of counts, size N+1
-    float* __restrict__ keys,
-    uint64_t* __restrict__ values) {
+    float lambda,
+    float* __restrict__ keys,              // output: -savings (for ascending sort)
+    uint64_t* __restrict__ values) {       // packed (i<<32) | j
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= N) return;
@@ -52,21 +53,17 @@ __global__ void fillSavingsKernel(
     const int* nbrs = neighbors + idx * maxNeighbors;
     int off = offsets[idx];
     int pos = 0;
+    float xi = x[idx], yi = y[idx];
+    // depot is at (0,0) relative to depot (we shift coordinates)
+    float d0i = sqrtf(xi*xi + yi*yi);
+
     for (int slot = 0; slot < maxNeighbors; ++slot) {
         int j = nbrs[slot];
         if (j > idx) {
-            // compute savings = dist(depot, i) + dist(depot, j) - dist(i, j)
-            // We assume depot index 0.
-            float xi = x[idx], yi = y[idx];
             float xj = x[j], yj = y[j];
-            float d0i = sqrtf(xi*xi + yi*yi);        // distance from depot (0,0)
             float d0j = sqrtf(xj*xj + yj*yj);
             float dij = sqrtf((xi-xj)*(xi-xj) + (yi-yj)*(yi-yj));
-            float sav = d0i + d0j - dij;   // note: lambda not applied here? In original they multiply by lambda.
-            // We'll apply lambda later on host or pass as parameter.
-            // For sorting we only need the numeric value; we can multiply by lambda after sort.
-            // But to keep exact match with original, we compute exactly as in savings.hpp.
-            // We'll incorporate lambda in the host wrapper.
+            float sav = d0i + d0j - lambda * dij;
             keys[off + pos] = -sav;           // negate for ascending sort
             values[off + pos] = (uint64_t)idx << 32 | (uint32_t)j;
             ++pos;
@@ -77,25 +74,30 @@ __global__ void fillSavingsKernel(
 // ------------------------------------------------------------------
 // Host wrapper: compute and sort savings using GPU
 // ------------------------------------------------------------------
-bool computeSavingsGPU(const Instance& instance, int neighbors_num,
+bool computeSavingsGPU(const Instance& instance,
+                       int neighbors_num,
+                       double lambda,
                        std::vector<Saving>& savings) {
 
     const int N = instance.get_customers_num();
     if (N <= 0) return true;
 
-    // Prepare device data: coordinates and neighbor lists
-    // We assume that the instance has xcoords, ycoords as std::vector<double>.
-    // We'll copy to float arrays.
+    // Prepare host arrays: coordinates (relative to depot)
+    const int depot = instance.get_depot();
+    // Access the coordinate vectors directly (they are public in Instance)
+    const auto& xcoords = instance.get_xcoords();
+    const auto& ycoords = instance.get_ycoords();
+    double depot_x = xcoords[depot];
+    double depot_y = ycoords[depot];
+
     std::vector<float> h_x(N), h_y(N);
     for (int i = 0; i < N; ++i) {
-        h_x[i] = (float)instance.get_xcoord(instance.get_customers_begin() + i);
-        h_y[i] = (float)instance.get_ycoord(instance.get_customers_begin() + i);
+        int cust = instance.get_customers_begin() + i;
+        h_x[i] = (float)(xcoords[cust] - depot_x);
+        h_y[i] = (float)(ycoords[cust] - depot_y);
     }
 
-    // Neighbors: each customer has a vector<int> neighbor list.
-    // We need a flat array of size N * maxNeighbors (maxNeighbors = neighbors_num).
-    // The original code loops over neighbors up to neighbors_num, but only adds if i < j.
-    // We'll allocate a flat array with maxNeighbors per customer.
+    // Build flat neighbor list: N * neighbors_num
     int maxNeighbors = neighbors_num;
     std::vector<int> h_neighbors(N * maxNeighbors, -1);
     for (int i = 0; i < N; ++i) {
@@ -103,7 +105,8 @@ bool computeSavingsGPU(const Instance& instance, int neighbors_num,
         const auto& nbrs = instance.get_neighbors_of(cust);
         int copyCount = std::min((int)nbrs.size(), maxNeighbors);
         for (int p = 0; p < copyCount; ++p) {
-            h_neighbors[i * maxNeighbors + p] = nbrs[p] - instance.get_customers_begin(); // convert to 0-based
+            // Convert to 0‑based index
+            h_neighbors[i * maxNeighbors + p] = nbrs[p] - instance.get_customers_begin();
         }
     }
 
@@ -111,12 +114,12 @@ bool computeSavingsGPU(const Instance& instance, int neighbors_num,
     thrust::device_vector<float> d_x(h_x);
     thrust::device_vector<float> d_y(h_y);
     thrust::device_vector<int> d_neighbors(h_neighbors);
+    float lambda_float = (float)lambda;
 
-    // We'll process in chunks to control memory usage.
-    // Determine chunk size: aim for ~200k customers to keep savings buffer under ~4GB.
-    const int CHUNK_SIZE = 200000;
+    // Process in chunks to limit memory usage.
+    const int CHUNK_SIZE = 200000; // adjust based on GPU memory
     int chunkStart = 0;
-    std::vector<std::vector<Saving>> sortedChunks; // each chunk's savings sorted descending
+    std::vector<std::vector<Saving>> sortedChunks;
 
     while (chunkStart < N) {
         int chunkEnd = std::min(chunkStart + CHUNK_SIZE, N);
@@ -126,7 +129,6 @@ bool computeSavingsGPU(const Instance& instance, int neighbors_num,
         thrust::device_vector<int> d_counts(chunkN);
         int blockSize = 256;
         int gridSize = (chunkN + blockSize - 1) / blockSize;
-        // Pass d_neighbors data offset by chunkStart * maxNeighbors
         countValidNeighborsKernel<<<gridSize, blockSize>>>(
             thrust::raw_pointer_cast(d_neighbors.data()) + chunkStart * maxNeighbors,
             chunkN, maxNeighbors,
@@ -136,24 +138,25 @@ bool computeSavingsGPU(const Instance& instance, int neighbors_num,
         // 2. Exclusive prefix sum to get offsets
         thrust::device_vector<int> d_offsets(chunkN + 1);
         thrust::exclusive_scan(thrust::device, d_counts.begin(), d_counts.end(), d_offsets.begin(), 0);
-        int total = d_offsets[chunkN]; // total savings in this chunk
+        int total = d_offsets[chunkN];
 
         if (total == 0) {
             chunkStart = chunkEnd;
             continue;
         }
 
-        // 3. Allocate keys and values for this chunk
+        // 3. Allocate keys and values
         thrust::device_vector<float> d_keys(total);
         thrust::device_vector<uint64_t> d_values(total);
 
         // 4. Fill keys and values
         fillSavingsKernel<<<gridSize, blockSize>>>(
-            thrust::raw_pointer_cast(d_x.data()),
-            thrust::raw_pointer_cast(d_y.data()),
+            thrust::raw_pointer_cast(d_x.data()) + chunkStart,
+            thrust::raw_pointer_cast(d_y.data()) + chunkStart,
             thrust::raw_pointer_cast(d_neighbors.data()) + chunkStart * maxNeighbors,
             chunkN, maxNeighbors,
             thrust::raw_pointer_cast(d_offsets.data()),
+            lambda_float,
             thrust::raw_pointer_cast(d_keys.data()),
             thrust::raw_pointer_cast(d_values.data()));
         cudaDeviceSynchronize();
@@ -167,36 +170,31 @@ bool computeSavingsGPU(const Instance& instance, int neighbors_num,
         thrust::copy(d_keys.begin(), d_keys.end(), h_keys.begin());
         thrust::copy(d_values.begin(), d_values.end(), h_values.begin());
 
-        // 7. Convert to Savings entries (descending order)
+        // 7. Convert to Saving structs (descending order)
         std::vector<Saving> chunkSavings;
         chunkSavings.reserve(total);
         for (int idx = 0; idx < total; ++idx) {
-            float savingsVal = -h_keys[idx]; // negate back
+            float sav = -h_keys[idx];
             uint64_t packed = h_values[idx];
             int i = (int)(packed >> 32);
             int j = (int)(packed & 0xFFFFFFFF);
-            // Convert back to original customer indices
             int orig_i = instance.get_customers_begin() + i;
             int orig_j = instance.get_customers_begin() + j;
-            chunkSavings.push_back({orig_i, orig_j, (double)savingsVal});
+            chunkSavings.push_back({orig_i, orig_j, (double)sav});
         }
         sortedChunks.push_back(std::move(chunkSavings));
 
         chunkStart = chunkEnd;
     }
 
-    // 8. Merge sorted chunks using k-way merge (priority queue)
-    // Each chunk is already sorted descending by savings.
     if (sortedChunks.empty()) return false;
 
-    // We need to merge into a single sorted vector.
-    // Since we have only a few chunks (N/CHUNK_SIZE), we can do a k-way merge with a min-heap
-    // but we want descending order, so we can use a max-heap based on savings.
+    // 8. Merge sorted chunks using priority queue (max‑heap on savings)
     struct Node {
         float value;
         int chunkId;
         int pos;
-        bool operator<(const Node& other) const { return value < other.value; } // for max-heap
+        bool operator<(const Node& other) const { return value < other.value; }
     };
     std::priority_queue<Node> pq;
     for (size_t c = 0; c < sortedChunks.size(); ++c) {
@@ -206,7 +204,7 @@ bool computeSavingsGPU(const Instance& instance, int neighbors_num,
     }
 
     savings.clear();
-    savings.reserve(pq.size() * CHUNK_SIZE); // approximate
+    savings.reserve(pq.size() * CHUNK_SIZE);
     while (!pq.empty()) {
         Node cur = pq.top(); pq.pop();
         int c = cur.chunkId;
@@ -217,14 +215,6 @@ bool computeSavingsGPU(const Instance& instance, int neighbors_num,
         }
     }
 
-    // Finally, apply lambda factor? The original computes value = +dist(depot,i) + dist(depot,j) - lambda * dist(i,j).
-    // In the kernel we computed without lambda; we need to adjust if lambda != 1.
-    // We'll apply lambda here to match original exactly.
-    // We'll get lambda from the context? The caller passes lambda as argument to clarke_and_wright.
-    // We'll modify the interface to accept lambda.
-    // For now, we assume lambda = 1, but we can add a parameter.
-
-    // Check that savings are sorted descending by value (should be)
     return true;
 }
 

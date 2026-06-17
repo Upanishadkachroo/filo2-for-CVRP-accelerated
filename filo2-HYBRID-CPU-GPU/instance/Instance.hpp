@@ -96,6 +96,10 @@ namespace cobra {
         inline const std::vector<int>& get_neighbors_of(int i) const {
             return neighbors[i];
         };
+        // NEW: Public getters for the coordinate vectors (used by GPU savings kernel)
+        inline const std::vector<double>& get_xcoords() const { return xcoords; }
+        inline const std::vector<double>& get_ycoords() const { return ycoords; }
+
 
     private:
         Instance(const Parser::Data& data, int neighbors_num);

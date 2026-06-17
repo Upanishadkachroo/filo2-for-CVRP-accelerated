@@ -114,6 +114,7 @@ set(SOURCES
     instance/Instance.hpp
     instance/Parser.cpp
     instance/Parser.hpp
+    instance/Saving.hpp
 
     localsearch/AbstractOperator.hpp
     localsearch/EjectionChain.hpp
@@ -159,8 +160,8 @@ if(ENABLE_CUDA)
         cuda/CudaNeighborFinder.hpp
         cuda/uniform_grid.cu       # uniform‑grid implementation
         cuda/uniform_grid.cuh      # header
-        #cuda/SavingsKernel.cu      # new GPU savings compute + sort
-        #cuda/SavingsKernel.cuh     # header
+        cuda/SavingsKernel.cu      # new GPU savings compute + sort
+        cuda/SavingsKernel.cuh     # header
     )
 endif()
 
