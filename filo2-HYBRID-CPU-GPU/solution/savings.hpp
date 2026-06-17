@@ -8,6 +8,11 @@
 #include <omp.h>
 #endif
 
+// For parallel sort (GNU extension)
+#ifdef __GNUC__
+#include <parallel/algorithm>
+#endif
+
 namespace cobra {
 
     // Limited savings algorithm.
@@ -22,8 +27,6 @@ namespace cobra {
 
         neighbors_num = std::min(instance.get_customers_num() - 1, neighbors_num);
 
-        const auto savings_num = instance.get_customers_num() * neighbors_num;
-
         struct Saving {
             int i;
             int j;
@@ -32,7 +35,7 @@ namespace cobra {
 
         // ---------- Parallel savings calculation ----------
         std::vector<Saving> savings;
-        savings.reserve(static_cast<unsigned long>(savings_num));
+        savings.reserve(static_cast<unsigned long>(instance.get_customers_num() * neighbors_num));
 
 #ifdef _OPENMP
         int num_threads = omp_get_max_threads();
@@ -57,11 +60,14 @@ namespace cobra {
         }
 
         // Merge thread‑local savings into global vector
+        size_t total = 0;
+        for (int t = 0; t < num_threads; ++t) total += thread_savings[t].size();
+        savings.reserve(total);
         for (int t = 0; t < num_threads; ++t) {
             savings.insert(savings.end(), thread_savings[t].begin(), thread_savings[t].end());
         }
 #else
-        // Serial fallback (if OpenMP not enabled)
+        // Serial fallback
         for (auto i = instance.get_customers_begin(); i < instance.get_customers_end(); i++) {
             for (auto n = 1u, added = 0u; added < static_cast<unsigned int>(neighbors_num) && n < instance.get_neighbors_of(i).size(); n++) {
                 const auto j = instance.get_neighbors_of(i)[n];
@@ -76,8 +82,15 @@ namespace cobra {
         }
 #endif
 
-        // ---------- Sorting (sequential, but can be replaced later with TBB/CUDA) ----------
+        // ---------- Parallel sorting (if available) ----------
+#ifdef _OPENMP && __GNUC__
+        // Use GNU parallel sort (multi‑core)
+        __gnu_parallel::sort(savings.begin(), savings.end(),
+                             [](const Saving &a, const Saving &b) { return a.value > b.value; });
+#else
+        // Fallback to standard sort
         std::sort(savings.begin(), savings.end(), [](const Saving &a, const Saving &b) { return a.value > b.value; });
+#endif
 
         // ---------- Sequential route merging ----------
 #ifdef VERBOSE

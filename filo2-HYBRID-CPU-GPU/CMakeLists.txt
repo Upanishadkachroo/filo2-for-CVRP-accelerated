@@ -26,6 +26,7 @@ option(ENABLE_VERBOSE    "Enable verbose output"                          ON)
 option(ENABLE_GUI        "Enable graphical interface"                     OFF)
 option(ENABLE_TIMELIMIT  "Enable time limit termination"                  OFF)
 option(ENABLE_CUDA       "Enable CUDA support"                            OFF)
+option(USE_GRID_NEIGHBOR "Use grid-based CUDA neighbor finder (large N)"  OFF)
 
 message("-- Build options")
 
@@ -156,8 +157,10 @@ if(ENABLE_CUDA)
     list(APPEND SOURCES
         cuda/CudaNeighborFinder.cu
         cuda/CudaNeighborFinder.hpp
-        cuda/uniform_grid.cu       # NEW uniform‑grid implementation
-        cuda/uniform_grid.cuh      # NEW header
+        cuda/uniform_grid.cu       # uniform‑grid implementation
+        cuda/uniform_grid.cuh      # header
+        #cuda/SavingsKernel.cu      # new GPU savings compute + sort
+        #cuda/SavingsKernel.cuh     # header
     )
 endif()
 
