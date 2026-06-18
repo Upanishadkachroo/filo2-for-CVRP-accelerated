@@ -1,6 +1,7 @@
 #ifndef _FILO2_SOLUTIONALGORITHMS_HPP_
 #define _FILO2_SOLUTIONALGORITHMS_HPP_
 
+#include <iostream>   // for verbose output
 #include "../base/Timer.hpp"
 #include "Solution.hpp"
 #include "../instance/Saving.hpp"
@@ -36,18 +37,24 @@ namespace cobra {
 
 #ifdef USE_CUDA_NEIGHBORS
         // Use GPU for large instances (threshold empirically set)
-        if (N > 200000) {
+        // Temporarily lowered to 1000 for testing; restore to 200000 after debugging.
+        if (N > 0) {
+            std::cout << "[C&W] GPU savings path triggered (N=" << N << ")\n";
             if (computeSavingsGPU(instance, neighbors_num, lambda, savings)) {
-                // savings is sorted descending; skip CPU compute + sort
+                std::cout << "[C&W] GPU savings completed successfully. Skipping CPU compute+sort.\n";
                 goto merge_loop;
+            } else {
+                std::cout << "[C&W] GPU savings failed. Falling back to CPU (OpenMP/serial).\n";
             }
-            // If GPU fails, fall back to CPU (OpenMP or serial)
+        } else {
+            std::cout << "[C&W] N=" << N << " is below GPU threshold. Using CPU path.\n";
         }
 #endif
 
         // ---------- CPU savings computation (OpenMP if available) ----------
         {
 #ifdef _OPENMP
+            std::cout << "[C&W] Using OpenMP for savings computation.\n";
             int num_threads = omp_get_max_threads();
             std::vector<std::vector<Saving>> thread_savings(num_threads);
 
@@ -77,7 +84,7 @@ namespace cobra {
                 savings.insert(savings.end(), thread_savings[t].begin(), thread_savings[t].end());
             }
 #else
-            // Serial fallback
+            std::cout << "[C&W] Using serial savings computation.\n";
             savings.reserve(instance.get_customers_num() * neighbors_num);
             for (auto i = instance.get_customers_begin(); i < instance.get_customers_end(); i++) {
                 for (auto n = 1u, added = 0u; added < static_cast<unsigned int>(neighbors_num) && n < instance.get_neighbors_of(i).size(); n++) {
@@ -93,11 +100,13 @@ namespace cobra {
             }
 #endif
 
-// ---------- Corrected preprocessor directive ----------
+            // Sorting
 #if defined(_OPENMP) && defined(__GNUC__)
+            std::cout << "[C&W] Using GNU parallel sort.\n";
             __gnu_parallel::sort(savings.begin(), savings.end(),
                                  [](const Saving &a, const Saving &b) { return a.value > b.value; });
 #else
+            std::cout << "[C&W] Using std::sort.\n";
             std::sort(savings.begin(), savings.end(), [](const Saving &a, const Saving &b) { return a.value > b.value; });
 #endif
         }

@@ -31,7 +31,7 @@ CMAKE_COLOR_MAKEFILE:BOOL=ON
 CMAKE_CUDA_ARCHITECTURES:UNINITIALIZED=75
 
 //CUDA compiler
-CMAKE_CUDA_COMPILER:FILEPATH=/usr/local/cuda-13.2/bin/nvcc
+CMAKE_CUDA_COMPILER:FILEPATH=/usr/local/cuda/bin/nvcc
 
 //Flags used by the CUDA compiler during all build types.
 CMAKE_CUDA_FLAGS:STRING=
@@ -211,13 +211,13 @@ CMAKE_TAPI:FILEPATH=CMAKE_TAPI-NOTFOUND
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
 //Path to a file.
-CUDAToolkit_CUPTI_INCLUDE_DIR:PATH=/usr/local/cuda-13.2/targets/x86_64-linux/include
+CUDAToolkit_CUPTI_INCLUDE_DIR:PATH=/usr/local/cuda/targets/x86_64-linux/include
 
 //Path to a library.
 CUDAToolkit_rt_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/librt.a
 
 //Path to a library.
-CUDA_CUDART:FILEPATH=/usr/local/cuda-13.2/lib64/libcudart.so
+CUDA_CUDART:FILEPATH=/usr/local/cuda/lib64/libcudart.so
 
 //Path to a library.
 CUDA_OpenCL_LIBRARY:FILEPATH=CUDA_OpenCL_LIBRARY-NOTFOUND
@@ -247,7 +247,7 @@ CUDA_cublas_LIBRARY:FILEPATH=/usr/local/cuda-13.2/targets/x86_64-linux/lib/libcu
 CUDA_cublas_static_LIBRARY:FILEPATH=/usr/local/cuda-13.2/targets/x86_64-linux/lib/libcublas_static.a
 
 //Path to a library.
-CUDA_cuda_driver_LIBRARY:FILEPATH=/usr/local/cuda-13.2/targets/x86_64-linux/lib/stubs/libcuda.so
+CUDA_cuda_driver_LIBRARY:FILEPATH=/usr/local/cuda/targets/x86_64-linux/lib/stubs/libcuda.so
 
 //Path to a library.
 CUDA_cudart_LIBRARY:FILEPATH=/usr/local/cuda-13.2/targets/x86_64-linux/lib/libcudart.so
@@ -400,7 +400,7 @@ CUDA_nvjpeg_LIBRARY:FILEPATH=/usr/local/cuda-13.2/targets/x86_64-linux/lib/libnv
 CUDA_nvjpeg_static_LIBRARY:FILEPATH=/usr/local/cuda-13.2/targets/x86_64-linux/lib/libnvjpeg_static.a
 
 //Path to a library.
-CUDA_nvml_LIBRARY:FILEPATH=/usr/local/cuda-13.2/targets/x86_64-linux/lib/stubs/libnvidia-ml.so
+CUDA_nvml_LIBRARY:FILEPATH=/usr/local/cuda/targets/x86_64-linux/lib/stubs/libnvidia-ml.so
 
 //Path to a library.
 CUDA_nvperf_host_LIBRARY:FILEPATH=/usr/local/cuda-13.2/targets/x86_64-linux/lib/libnvperf_host.so
@@ -760,7 +760,7 @@ CUDA_nvrtc_static_LIBRARY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_pcsamplingutil_LIBRARY
 CUDA_pcsamplingutil_LIBRARY-ADVANCED:INTERNAL=1
 //Details about finding CUDAToolkit
-FIND_PACKAGE_MESSAGE_DETAILS_CUDAToolkit:INTERNAL=[/usr/local/cuda-13.2/targets/x86_64-linux/include][/usr/local/cuda-13.2/lib64/libcudart.so][/usr/local/cuda-13.2/bin][v13.2.78()]
+FIND_PACKAGE_MESSAGE_DETAILS_CUDAToolkit:INTERNAL=[/usr/local/cuda/targets/x86_64-linux/include][/usr/local/cuda/lib64/libcudart.so][/usr/local/cuda/bin][v13.2.78()]
 //Details about finding OpenMP
 FIND_PACKAGE_MESSAGE_DETAILS_OpenMP:INTERNAL=[TRUE][c ][v4.5()]
 //Details about finding OpenMP_CXX
