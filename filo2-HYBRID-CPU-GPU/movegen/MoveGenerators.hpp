@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <vector>
+#include <chrono>   // for profiling timers
+#include <iostream> // for profiling output
 
 #include "../base/BinaryHeap.hpp"
 #include "../base/Flat2DVector.hpp"
@@ -157,14 +159,28 @@ namespace cobra {
             , vertices_in_updated_moves(instance.get_vertices_num())
             , unique_endpoints(instance.get_vertices_num()) {
 
-            update_bits.resize(instance.get_vertices_num(), 2);
+            // ─── PROFILING: start timer and counters ───────────────
+            auto t_construct_start = std::chrono::high_resolution_clock::now();
 
+            long long case_A_count       = 0;
+            long long case_B_insert      = 0;
+            long long case_C_scan_fired  = 0;
+            long long case_C_scan_steps  = 0;
+            long long case_C_inserted    = 0;
+            long long case_C_skipped     = 0;
+            // ────────────────────────────────────────────────────────
+
+            update_bits.resize(instance.get_vertices_num(), 2);
             base_move_indices_involving.resize(instance.get_vertices_num());
             active_move_indices_involving_1st.resize(instance.get_vertices_num());
             current_num_neighbors.resize(instance.get_vertices_num(), 0);
 
             const int neighbors_begin = 1;
-            const int neighbors_end = neighbors_begin + max_num_neighbors;
+            const int neighbors_end   = neighbors_begin + max_num_neighbors;
+
+            // ─── PROFILING: start Loop 1 timer ────────────────────
+            auto t_loop1_start = std::chrono::high_resolution_clock::now();
+            // ────────────────────────────────────────────────────────
 
             for (int i = instance.get_vertices_begin(); i < instance.get_vertices_end(); ++i) {
                 const auto& ineighbors = instance.get_neighbors_of(i);
@@ -190,6 +206,7 @@ namespace cobra {
 
                     assert(i != j);
                     if (i < j) {
+                        ++case_A_count;
                         insert(i, j);
                         continue;
                     }
@@ -199,13 +216,16 @@ namespace cobra {
                     const double cij = instance.get_cost(i, j);
                     const double cjn = instance.get_cost(j, jneighbors[neighbors_end - 1]);
                     if (cij > cjn) {
+                        ++case_B_insert;
                         insert(j, i);
                         continue;
                     }
 
                     if (std::fabs(cij - cjn) < 0.00001) {
+                        ++case_C_scan_fired;
                         bool add = true;
                         for (int idx : base_move_indices_involving[j]) {
+                            ++case_C_scan_steps;
                             if (moves[idx].get_second_vertex() == i) {
                                 add = false;
                                 break;
@@ -213,12 +233,23 @@ namespace cobra {
                         }
 
                         if (add) {
+                            ++case_C_inserted;
                             insert(j, i);
+                        } else {
+                            ++case_C_skipped;
                         }
                         continue;
                     }
                 }
             }
+
+            // ─── PROFILING: end Loop 1 timer ──────────────────────
+            auto t_loop1_end = std::chrono::high_resolution_clock::now();
+            // ────────────────────────────────────────────────────────
+
+            // ─── PROFILING: start Loop 2 timer ────────────────────
+            auto t_loop2_start = std::chrono::high_resolution_clock::now();
+            // ────────────────────────────────────────────────────────
 
             for (int i = instance.get_vertices_begin(); i < instance.get_vertices_end(); ++i) {
                 std::sort(base_move_indices_involving[i].begin(), base_move_indices_involving[i].end(), [this](int a, int b) {
@@ -232,9 +263,39 @@ namespace cobra {
                 });
             }
 
-            // We only consider base indices (thus size / 2).
+            // ─── PROFILING: end Loop 2 timer ──────────────────────
+            auto t_loop2_end = std::chrono::high_resolution_clock::now();
+            // ────────────────────────────────────────────────────────
+
             move_active_in_1st.resize(moves.size() / 2, false);
             move_active_in_2nd.resize(moves.size() / 2, false);
+
+            // ─── PROFILING: end constructor timer ─────────────────
+            auto t_construct_end = std::chrono::high_resolution_clock::now();
+
+            auto ms = [](auto a, auto b) {
+                return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count();
+            };
+
+            std::cout << "\n========== MOVEGENERATORS PROFILING ==========\n";
+            std::cout << "Total constructor time  : " << ms(t_construct_start, t_construct_end) << " ms\n";
+            std::cout << "Loop 1 (build moves)    : " << ms(t_loop1_start, t_loop1_end)         << " ms\n";
+            std::cout << "Loop 2 (sort per vertex): " << ms(t_loop1_end, t_loop2_end)            << " ms\n";
+            std::cout << "Rest (resize/init)      : " << ms(t_loop2_end, t_construct_end)        << " ms\n";
+            std::cout << "----------------------------------------------\n";
+            std::cout << "Total N×k iterations    : " << (case_A_count + case_B_insert + case_C_scan_fired) << "\n";
+            std::cout << "Case A (i<j, insert)    : " << case_A_count      << "\n";
+            std::cout << "Case B (cij>cjn, ins)   : " << case_B_insert     << "\n";
+            std::cout << "Case C (tie, scan)      : " << case_C_scan_fired  << "\n";
+            std::cout << "  Case C inserted       : " << case_C_inserted    << "\n";
+            std::cout << "  Case C skipped        : " << case_C_skipped     << "\n";
+            std::cout << "  Total scan steps      : " << case_C_scan_steps  << "\n";
+            std::cout << "  Avg scan length       : "
+                      << (case_C_scan_fired > 0 ? (double)case_C_scan_steps / case_C_scan_fired : 0.0)
+                      << " steps\n";
+            std::cout << "Total moves created     : " << moves.size()       << "\n";
+            std::cout << "==============================================\n\n";
+            // ──────────────────────────────────────────────────────────
         }
 
         inline MoveGenerator& get(int idx) {
