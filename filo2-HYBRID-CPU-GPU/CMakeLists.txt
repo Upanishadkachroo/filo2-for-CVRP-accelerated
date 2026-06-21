@@ -140,6 +140,7 @@ set(SOURCES
     localsearch/TwoZeroExchange.hpp
 
     movegen/MoveGenerators.hpp
+    # movegen/MoveGenerators.cpp   <--- REMOVED because it does not exist (header-only)
 
     opt/routemin.hpp
     opt/RuinAndRecreate.hpp

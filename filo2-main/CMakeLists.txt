@@ -89,6 +89,7 @@ add_executable(filo2
     localsearch/TwoZeroExchange.hpp
 
     movegen/MoveGenerators.hpp
+    movegen/MoveGenerators.cpp     # <-- ADDED
 
     opt/routemin.hpp
     opt/RuinAndRecreate.hpp

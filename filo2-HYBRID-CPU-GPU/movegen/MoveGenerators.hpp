@@ -130,8 +130,10 @@ namespace cobra {
 
 #ifdef _OPENMP
             const int num_threads = omp_get_max_threads();
+            std::cout << "[MoveGenerators] OpenMP enabled, max threads = " << num_threads << "\n";
 #else
             const int num_threads = 1;
+            std::cout << "[MoveGenerators] OpenMP disabled, using sequential execution.\n";
 #endif
 
             // Thread‑local data structure
@@ -202,6 +204,8 @@ namespace cobra {
             size_t total_moves = 0;
             for (int t = 0; t < num_threads; ++t) total_moves += thread_data[t].first.size();
 
+            std::cout << "[MoveGenerators] Total candidate moves before sorting: " << total_moves << "\n";
+
             // Compact Pair struct
             struct Pair {
                 int a, b, cost;
@@ -229,9 +233,11 @@ namespace cobra {
 
             // Parallel sort if available
 #if defined(__GNUC__) && defined(_OPENMP)
+            std::cout << "[MoveGenerators] Using __gnu_parallel::sort (parallel)\n";
             __gnu_parallel::sort(all_pairs.begin(), all_pairs.end(),
                                  [](const Pair& p1, const Pair& p2) { return p1 < p2; });
 #else
+            std::cout << "[MoveGenerators] Using std::sort (sequential)\n";
             std::sort(all_pairs.begin(), all_pairs.end());
 #endif
 
