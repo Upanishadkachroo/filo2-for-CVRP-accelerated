@@ -7,11 +7,11 @@ CUDA_DEFINES = -DCUDA_ENABLED -DUSE_CUDA_NEIGHBORS -DVERBOSE
 
 CUDA_INCLUDES = --options-file CMakeFiles/filo2.dir/includes_CUDA.rsp
 
-CUDA_FLAGS =  -O3 --use_fast_math -O3 -DNDEBUG -std=c++17 "--generate-code=arch=compute_75,code=[compute_75,sm_75]" -fopenmp
+CUDA_FLAGS =  -O3 --use_fast_math -std=c++17 "--generate-code=arch=compute_75,code=[compute_75,sm_75]" -fopenmp
 
 CXX_DEFINES = -DCUDA_ENABLED -DUSE_CUDA_NEIGHBORS -DVERBOSE
 
 CXX_INCLUDES = -I/home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU -isystem /usr/local/cuda/targets/x86_64-linux/include
 
-CXX_FLAGS =  -Wall -Wextra -Wpedantic -Wuninitialized -O3 -DNDEBUG -O3 -march=native -flto=auto -std=gnu++17 -fopenmp -fopenmp
+CXX_FLAGS =  -Wall -Wextra -Wpedantic -Wuninitialized -std=gnu++17 -fopenmp -fopenmp
 
