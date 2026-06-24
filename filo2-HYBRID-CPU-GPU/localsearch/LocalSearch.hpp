@@ -4,6 +4,9 @@
 #include <algorithm>
 #include <cfloat>
 #include <random>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 #include "../instance/Instance.hpp"
 #include "../movegen/MoveGenerators.hpp"
@@ -59,10 +62,39 @@ namespace cobra {
         RE33S,
     };
 
+    // Helper to convert operator enum to string.
+    static std::string getOperatorName(Operator op) {
+        switch(op) {
+            case E10:   return "E10";
+            case E11:   return "E11";
+            case E20:   return "E20";
+            case E21:   return "E21";
+            case E22:   return "E22";
+            case E30:   return "E30";
+            case E31:   return "E31";
+            case E32:   return "E32";
+            case E33:   return "E33";
+            case SPLIT: return "SPLIT";
+            case TAILS: return "TAILS";
+            case TWOPT: return "TWOPT";
+            case EJCH:  return "EJCH";
+            case RE20:  return "RE20";
+            case RE21:  return "RE21";
+            case RE22B: return "RE22B";
+            case RE22S: return "RE22S";
+            case RE30:  return "RE30";
+            case RE31:  return "RE31";
+            case RE32B: return "RE32B";
+            case RE32S: return "RE32S";
+            case RE33B: return "RE33B";
+            case RE33S: return "RE33S";
+            default:    return "UNKNOWN";
+        }
+    }
+
     // General VND interface.
     class VariableNeighborhoodDescentInterface : private NonCopyable<VariableNeighborhoodDescentInterface> {
     public:
-        // Applies the VND to the given solution.
         virtual void apply(Solution& solution) = 0;
     };
 
@@ -74,6 +106,12 @@ namespace cobra {
                                               std::mt19937& rand_engine_, double tolerance = 0.01)
             : instance(instance_), moves(moves_), rand_engine(rand_engine_) {
 
+            // Lambda to create operator and store pair.
+            auto add_operator = [&](Operator op, AbstractOperator* ptr) {
+                operators.push_back({op, ptr});
+            };
+
+            // Same initialization as before.
             OperatorInitTable[E10] = [this, tolerance]() {
                 return new CommonOperator<OneZeroExchange, handle_partial_solutions>(instance, moves, tolerance);
             };
@@ -148,37 +186,46 @@ namespace cobra {
                 return new CommonOperator<RevThreeThreeExchange<false>, handle_partial_solutions>(instance, moves, tolerance);
             };
 
+            // Build operators.
             for (auto op : operator_list) {
                 auto ptr = OperatorInitTable[op]();
-                operators.push_back(ptr);
+                operators.push_back({op, ptr});
             }
+
+            // Shuffle the operators to prepare for randomization.
+            shuffleOperators();
         }
 
         virtual ~RandomizedVariableNeighborhoodDescent() {
-            for (auto op : operators) {
-                delete op;
+            for (auto& pair : operators) {
+                delete pair.second;
             }
         }
 
         void apply(Solution& solution) override {
 
-            std::shuffle(operators.begin(), operators.end(), rand_engine);
+            // Shuffle again to randomize order each call.
+            shuffleOperators();
 
-            // Instead of re-applying all the operators if some improvement is found, we just perform a single. This does not harm quality
-            // too much and saves some computing time.
-            for (auto& op : operators) {
-                op->apply_rough_best_improvement(solution);
+            // Apply each operator once.
+            for (auto& pair : operators) {
+                AbstractOperator* op_ptr = pair.second;
+                op_ptr->apply_rough_best_improvement(solution);
             }
 
             assert(solution.is_feasible());
         }
 
     private:
+        void shuffleOperators() {
+            std::shuffle(operators.begin(), operators.end(), rand_engine);
+        }
+
         const Instance& instance;
         MoveGenerators& moves;
         std::mt19937& rand_engine;
         std::unordered_map<Operator, std::function<AbstractOperator*()>> OperatorInitTable;
-        std::vector<AbstractOperator*> operators;
+        std::vector<std::pair<Operator, AbstractOperator*>> operators;
     };
 
     // Links together VNDs.
@@ -208,8 +255,6 @@ namespace cobra {
         std::vector<VariableNeighborhoodDescentInterface*> tiers;
     };
 
-
 }  // namespace cobra
-
 
 #endif

@@ -174,6 +174,10 @@ namespace cobra {
                     for (int p = neighbors_begin; p < neighbors_end; ++p) {
                         assert(p < static_cast<int>(ineighbors.size()));
                         const int j = ineighbors[p];
+
+                        // Skip invalid neighbors (if any)
+                        if (j < 0) continue;
+
                         const int cost = static_cast<int>(instance.get_cost(i, j));
                         assert(i != j);
 
@@ -182,15 +186,18 @@ namespace cobra {
                             continue;
                         }
 
+                        // i > j
                         const auto& jneighbors = instance.get_neighbors_of(j);
                         const int cij = cost;
                         const int cjn = static_cast<int>(instance.get_cost(j, jneighbors[neighbors_end - 1]));
 
                         if (cij > cjn) {
                             add_move(j, i, cost);
-                            continue;
+                        } else if (cij == cjn) {
+                            // Tie – add it; duplicates removed by global dedup
+                            add_move(j, i, cost);
                         }
-                        // Skip tie cases (rare)
+                        // If cij < cjn, skip (original behaviour)
                     }
                 }
             }
@@ -260,17 +267,18 @@ namespace cobra {
                 base_move_indices_involving[i].reserve(vertex_count[i]);
             }
 
-            // Fill global structures
-            size_t base_idx = 0;
+            // ★★★ FILL GLOBAL STRUCTURES – EXACT CHANGES ★★★
             for (size_t idx = 0; idx < all_pairs.size(); ++idx) {
                 if (idx > 0 && all_pairs[idx] == all_pairs[idx-1]) continue;
                 const auto& p = all_pairs[idx];
+                const int base_idx = static_cast<int>(moves.size()); // MUST be before emplace_back
+                assert(base_idx == get_base_move_generator_index(base_idx)); // must be even
                 moves.emplace_back(p.a, p.b);
                 moves.emplace_back(p.b, p.a);
                 edge_costs.emplace_back(static_cast<double>(p.cost));
                 base_move_indices_involving[p.a].push_back(base_idx);
                 base_move_indices_involving[p.b].push_back(base_idx);
-                ++base_idx;
+                // no ++base_idx – moves.size() increments by 2 automatically
             }
 
             // Free temporary memory
