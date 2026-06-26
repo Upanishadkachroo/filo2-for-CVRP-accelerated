@@ -113,30 +113,32 @@ namespace cobra {
     // ---------- MoveGenerators ----------
     class MoveGenerators : private NonCopyable<MoveGenerators> {
     public:
-        MoveGenerators(const Instance& instance, int k)
+        // ★★★ ADDED: print_profiling parameter (default true) ★★★
+        MoveGenerators(const Instance& instance, int k, bool print_profiling = true)
             : max_num_neighbors(std::min(k, instance.get_vertices_num() - 1))
             , heap(MoveGeneratorsHeap())
             , vertex_timestamp(instance.get_vertices_num(), 0)
             , vertices_in_updated_moves(instance.get_vertices_num())
             , unique_endpoints(instance.get_vertices_num()) {
 
-            // ─── Profiling: start timer ───────────────
             auto t_construct_start = std::chrono::high_resolution_clock::now();
 
-            // ─── Two‑pass parallel generation ────────
             const int N = instance.get_vertices_num();
             const int neighbors_begin = 1;
             const int neighbors_end   = neighbors_begin + max_num_neighbors;
 
 #ifdef _OPENMP
             const int num_threads = omp_get_max_threads();
-            std::cout << "[MoveGenerators] OpenMP enabled, max threads = " << num_threads << "\n";
+            if (print_profiling) {
+                std::cout << "[MoveGenerators] OpenMP enabled, max threads = " << num_threads << "\n";
+            }
 #else
             const int num_threads = 1;
-            std::cout << "[MoveGenerators] OpenMP disabled, using sequential execution.\n";
+            if (print_profiling) {
+                std::cout << "[MoveGenerators] OpenMP disabled, using sequential execution.\n";
+            }
 #endif
 
-            // Thread‑local data structure
             struct ThreadLocalData {
                 std::vector<int> first;
                 std::vector<int> second;
@@ -146,7 +148,6 @@ namespace cobra {
             std::vector<ThreadLocalData> thread_data(num_threads);
             const int chunk_size = (N + num_threads - 1) / num_threads;
 
-            // ─── Pass 1: Parallel filtering ───────────────────────────
             auto t_pass1_start = std::chrono::high_resolution_clock::now();
 
 #ifdef _OPENMP
@@ -174,8 +175,6 @@ namespace cobra {
                     for (int p = neighbors_begin; p < neighbors_end; ++p) {
                         assert(p < static_cast<int>(ineighbors.size()));
                         const int j = ineighbors[p];
-
-                        // Skip invalid neighbors (if any)
                         if (j < 0) continue;
 
                         const int cost = static_cast<int>(instance.get_cost(i, j));
@@ -186,7 +185,6 @@ namespace cobra {
                             continue;
                         }
 
-                        // i > j
                         const auto& jneighbors = instance.get_neighbors_of(j);
                         const int cij = cost;
                         const int cjn = static_cast<int>(instance.get_cost(j, jneighbors[neighbors_end - 1]));
@@ -194,26 +192,23 @@ namespace cobra {
                         if (cij > cjn) {
                             add_move(j, i, cost);
                         } else if (cij == cjn) {
-                            // Tie – add it; duplicates removed by global dedup
                             add_move(j, i, cost);
                         }
-                        // If cij < cjn, skip (original behaviour)
                     }
                 }
             }
 
             auto t_pass1_end = std::chrono::high_resolution_clock::now();
 
-            // ─── Pass 2: Sort + deduplicate (parallel sort) ────────────
             auto t_pass2_start = std::chrono::high_resolution_clock::now();
 
-            // Count total moves
             size_t total_moves = 0;
             for (int t = 0; t < num_threads; ++t) total_moves += thread_data[t].first.size();
 
-            std::cout << "[MoveGenerators] Total candidate moves before sorting: " << total_moves << "\n";
+            if (print_profiling) {
+                std::cout << "[MoveGenerators] Total candidate moves before sorting: " << total_moves << "\n";
+            }
 
-            // Compact Pair struct
             struct Pair {
                 int a, b, cost;
                 bool operator<(const Pair& other) const {
@@ -238,17 +233,19 @@ namespace cobra {
                 }
             }
 
-            // Parallel sort if available
 #if defined(__GNUC__) && defined(_OPENMP)
-            std::cout << "[MoveGenerators] Using __gnu_parallel::sort (parallel)\n";
+            if (print_profiling) {
+                std::cout << "[MoveGenerators] Using __gnu_parallel::sort (parallel)\n";
+            }
             __gnu_parallel::sort(all_pairs.begin(), all_pairs.end(),
                                  [](const Pair& p1, const Pair& p2) { return p1 < p2; });
 #else
-            std::cout << "[MoveGenerators] Using std::sort (sequential)\n";
+            if (print_profiling) {
+                std::cout << "[MoveGenerators] Using std::sort (sequential)\n";
+            }
             std::sort(all_pairs.begin(), all_pairs.end());
 #endif
 
-            // Pre‑count unique pairs and counts per vertex
             std::vector<int> vertex_count(N, 0);
             size_t unique_count = 0;
             for (size_t idx = 0; idx < all_pairs.size(); ++idx) {
@@ -259,7 +256,6 @@ namespace cobra {
                 vertex_count[p.b]++;
             }
 
-            // Reserve vectors and allocate base_move_indices_involving
             moves.reserve(unique_count * 2);
             edge_costs.reserve(unique_count);
             base_move_indices_involving.resize(N);
@@ -267,21 +263,18 @@ namespace cobra {
                 base_move_indices_involving[i].reserve(vertex_count[i]);
             }
 
-            // ★★★ FILL GLOBAL STRUCTURES – EXACT CHANGES ★★★
             for (size_t idx = 0; idx < all_pairs.size(); ++idx) {
                 if (idx > 0 && all_pairs[idx] == all_pairs[idx-1]) continue;
                 const auto& p = all_pairs[idx];
-                const int base_idx = static_cast<int>(moves.size()); // MUST be before emplace_back
-                assert(base_idx == get_base_move_generator_index(base_idx)); // must be even
+                const int base_idx = static_cast<int>(moves.size());
+                assert(base_idx == get_base_move_generator_index(base_idx));
                 moves.emplace_back(p.a, p.b);
                 moves.emplace_back(p.b, p.a);
                 edge_costs.emplace_back(static_cast<double>(p.cost));
                 base_move_indices_involving[p.a].push_back(base_idx);
                 base_move_indices_involving[p.b].push_back(base_idx);
-                // no ++base_idx – moves.size() increments by 2 automatically
             }
 
-            // Free temporary memory
             all_pairs.clear();
             all_pairs.shrink_to_fit();
             thread_data.clear();
@@ -289,7 +282,6 @@ namespace cobra {
 
             auto t_pass2_end = std::chrono::high_resolution_clock::now();
 
-            // ─── Loop 2: Sort per vertex (parallelised) ─────────────────
             auto t_loop2_start = std::chrono::high_resolution_clock::now();
 
 #ifdef _OPENMP
@@ -305,7 +297,6 @@ namespace cobra {
 
             auto t_loop2_end = std::chrono::high_resolution_clock::now();
 
-            // ─── Finish initialisation ──────────────────────────────────
             move_active_in_1st.resize(moves.size() / 2, false);
             move_active_in_2nd.resize(moves.size() / 2, false);
 
@@ -315,20 +306,22 @@ namespace cobra {
 
             auto t_construct_end = std::chrono::high_resolution_clock::now();
 
-            // ─── Print profiling report ─────────────────────────────────
-            auto ms = [](auto a, auto b) {
-                return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count();
-            };
+            // ★★★ Only print if requested ★★★
+            if (print_profiling) {
+                auto ms = [](auto a, auto b) {
+                    return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count();
+                };
 
-            std::cout << "\n========== MOVEGENERATORS PROFILING (Final Optimised) ==========\n";
-            std::cout << "Total constructor time  : " << ms(t_construct_start, t_construct_end) << " ms\n";
-            std::cout << "Pass 1 (parallel gen)   : " << ms(t_pass1_start, t_pass1_end)         << " ms\n";
-            std::cout << "Pass 2 (sort+dedup)     : " << ms(t_pass2_start, t_pass2_end)         << " ms\n";
-            std::cout << "Loop 2 (sort per vertex): " << ms(t_loop2_start, t_loop2_end)          << " ms\n";
-            std::cout << "----------------------------------------------\n";
-            std::cout << "Total moves generated   : " << total_moves                           << "\n";
-            std::cout << "Unique base moves       : " << moves.size() / 2                      << "\n";
-            std::cout << "==============================================\n\n";
+                std::cout << "\n========== MOVEGENERATORS PROFILING (Final Optimised) ==========\n";
+                std::cout << "Total constructor time  : " << ms(t_construct_start, t_construct_end) << " ms\n";
+                std::cout << "Pass 1 (parallel gen)   : " << ms(t_pass1_start, t_pass1_end)         << " ms\n";
+                std::cout << "Pass 2 (sort+dedup)     : " << ms(t_pass2_start, t_pass2_end)         << " ms\n";
+                std::cout << "Loop 2 (sort per vertex): " << ms(t_loop2_start, t_loop2_end)          << " ms\n";
+                std::cout << "----------------------------------------------\n";
+                std::cout << "Total moves generated   : " << total_moves                           << "\n";
+                std::cout << "Unique base moves       : " << moves.size() / 2                      << "\n";
+                std::cout << "==============================================\n\n";
+            }
         }
 
         // ---------- Public methods (unchanged) ----------
@@ -427,7 +420,6 @@ namespace cobra {
         static inline int get_base_move_generator_index(int index) { return index & ~1; }
 
     private:
-        // ---- Helper methods (unchanged) ----
         inline void set_active_in(const MoveGenerator& move, int vertex) {
             const int idx = (&move - moves.data()) / 2;
             assert(vertex == move.get_first_vertex() || vertex == move.get_second_vertex());
@@ -467,7 +459,6 @@ namespace cobra {
         std::vector<unsigned long> vertex_timestamp;
         TimestampGenerator timegen;
 
-        // ---- Temporaries ----
         std::vector<int> vertices_getting_updated;
         SparseIntSet vertices_in_updated_moves;
         std::vector<int> unique_move_generators;

@@ -361,7 +361,4 @@ CMakeFiles/filo2.dir/main.cpp.o: \
  /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/solution/savings.hpp \
  /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/solution/../base/Timer.hpp \
  /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/solution/Solution.hpp \
- /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/solution/../instance/Saving.hpp \
- /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/solution/../cuda/SavingsKernel.cuh \
- /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/solution/../cuda/../instance/Instance.hpp \
- /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/solution/../cuda/../instance/Saving.hpp
+ /home/intern1/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/solution/../instance/Saving.hpp

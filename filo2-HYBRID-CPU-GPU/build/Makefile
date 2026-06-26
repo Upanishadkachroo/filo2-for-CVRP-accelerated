@@ -156,78 +156,6 @@ base/KDTree.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/base/KDTree.cpp.s
 .PHONY : base/KDTree.cpp.s
 
-cuda/CudaNeighborFinder.o: cuda/CudaNeighborFinder.cu.o
-.PHONY : cuda/CudaNeighborFinder.o
-
-# target to build an object file
-cuda/CudaNeighborFinder.cu.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.o
-.PHONY : cuda/CudaNeighborFinder.cu.o
-
-cuda/CudaNeighborFinder.i: cuda/CudaNeighborFinder.cu.i
-.PHONY : cuda/CudaNeighborFinder.i
-
-# target to preprocess a source file
-cuda/CudaNeighborFinder.cu.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.i
-.PHONY : cuda/CudaNeighborFinder.cu.i
-
-cuda/CudaNeighborFinder.s: cuda/CudaNeighborFinder.cu.s
-.PHONY : cuda/CudaNeighborFinder.s
-
-# target to generate assembly for a file
-cuda/CudaNeighborFinder.cu.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/CudaNeighborFinder.cu.s
-.PHONY : cuda/CudaNeighborFinder.cu.s
-
-cuda/SavingsKernel.o: cuda/SavingsKernel.cu.o
-.PHONY : cuda/SavingsKernel.o
-
-# target to build an object file
-cuda/SavingsKernel.cu.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.o
-.PHONY : cuda/SavingsKernel.cu.o
-
-cuda/SavingsKernel.i: cuda/SavingsKernel.cu.i
-.PHONY : cuda/SavingsKernel.i
-
-# target to preprocess a source file
-cuda/SavingsKernel.cu.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.i
-.PHONY : cuda/SavingsKernel.cu.i
-
-cuda/SavingsKernel.s: cuda/SavingsKernel.cu.s
-.PHONY : cuda/SavingsKernel.s
-
-# target to generate assembly for a file
-cuda/SavingsKernel.cu.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/SavingsKernel.cu.s
-.PHONY : cuda/SavingsKernel.cu.s
-
-cuda/uniform_grid.o: cuda/uniform_grid.cu.o
-.PHONY : cuda/uniform_grid.o
-
-# target to build an object file
-cuda/uniform_grid.cu.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/uniform_grid.cu.o
-.PHONY : cuda/uniform_grid.cu.o
-
-cuda/uniform_grid.i: cuda/uniform_grid.cu.i
-.PHONY : cuda/uniform_grid.i
-
-# target to preprocess a source file
-cuda/uniform_grid.cu.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/uniform_grid.cu.i
-.PHONY : cuda/uniform_grid.cu.i
-
-cuda/uniform_grid.s: cuda/uniform_grid.cu.s
-.PHONY : cuda/uniform_grid.s
-
-# target to generate assembly for a file
-cuda/uniform_grid.cu.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/filo2.dir/build.make CMakeFiles/filo2.dir/cuda/uniform_grid.cu.s
-.PHONY : cuda/uniform_grid.cu.s
-
 instance/Instance.o: instance/Instance.cpp.o
 .PHONY : instance/Instance.o
 
@@ -336,15 +264,6 @@ help:
 	@echo "... base/KDTree.o"
 	@echo "... base/KDTree.i"
 	@echo "... base/KDTree.s"
-	@echo "... cuda/CudaNeighborFinder.o"
-	@echo "... cuda/CudaNeighborFinder.i"
-	@echo "... cuda/CudaNeighborFinder.s"
-	@echo "... cuda/SavingsKernel.o"
-	@echo "... cuda/SavingsKernel.i"
-	@echo "... cuda/SavingsKernel.s"
-	@echo "... cuda/uniform_grid.o"
-	@echo "... cuda/uniform_grid.i"
-	@echo "... cuda/uniform_grid.s"
 	@echo "... instance/Instance.o"
 	@echo "... instance/Instance.i"
 	@echo "... instance/Instance.s"
