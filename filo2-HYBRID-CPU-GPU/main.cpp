@@ -252,6 +252,9 @@ int main(int argc, char* argv[]) {
 
     cobra::Solution global_best = best_solution;
 
+    // ★★★ CoreOpt timer started here ★★★
+    cobra::Timer coreopt_timer;
+
 #ifdef _OPENMP
     #pragma omp parallel for num_threads(num_threads) schedule(static, 1)
 #endif
@@ -557,6 +560,11 @@ int main(int argc, char* argv[]) {
             }
         }
     }
+
+    // ★★★ CoreOpt timer stopped and printed here ★★★
+#ifdef VERBOSE
+    std::cout << "CoreOpt phase took " << coreopt_timer.elapsed_time<std::chrono::seconds>() << " seconds.\n\n";
+#endif
 
     best_solution = global_best;
 

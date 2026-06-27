@@ -1,5 +1,6 @@
 #include <fstream>
 #include <chrono>
+#include <iomanip>
 #include "Parameters.hpp"
 #include "base/PrettyPrinter.hpp"
 #include "base/Timer.hpp"
@@ -239,6 +240,9 @@ int main(int argc, char* argv[]) {
 
     double reference_solution_cost = neighbor.get_cost();
 
+    // --- Start COREOPT timer ---
+    auto coreopt_start = std::chrono::high_resolution_clock::now();
+
 #ifdef TIMELIMIT
     for (auto iter = 0; static_cast<int>(global_timer.elapsed_time<std::chrono::milliseconds>()) <= optimization_milliseconds; iter++) {
 #else
@@ -454,6 +458,11 @@ int main(int argc, char* argv[]) {
         }
 #endif
     }
+
+    // --- End COREOPT timer ---
+    auto coreopt_end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> coreopt_sec = coreopt_end - coreopt_start;
+    std::cout << "COREOPT phase took " << coreopt_sec.count() << " seconds.\n";
 
     int global_time_elapsed = global_timer.elapsed_time<std::chrono::seconds>();
 
