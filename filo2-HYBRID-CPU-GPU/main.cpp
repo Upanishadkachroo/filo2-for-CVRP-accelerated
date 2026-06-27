@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
     const auto tolerance = params.get_tolerance();
 
     // ──────────────────────────────────────────────────────────────────────────────
-    //  ROUTEMIN – Parallel restarts (only thread 0 prints) – UNCHANGED
+    //  ROUTEMIN – Parallel restarts (only thread 0 prints)
     // ──────────────────────────────────────────────────────────────────────────────
     if (kmin < best_solution.get_routes_num()) {
 
@@ -205,16 +205,13 @@ int main(int argc, char* argv[]) {
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
-    //  COREOPT – Parallel trajectories with Distance Cache
+    //  COREOPT – Parallel trajectories (iteration‑based, no TIMELIMIT)
     // ──────────────────────────────────────────────────────────────────────────────
 
-#ifdef TIMELIMIT
-    const int optimization_seconds = params.get_optimization_seconds();
-    const int optimization_milliseconds = 1000 * optimization_seconds;
-#else
+    // Always use the iteration count from parameters (default 100000).
     const auto coreopt_iterations = params.get_coreopt_iterations();
-#endif
 
+    // Compute mean distance for SA initial temperature (unchanged).
     auto vertices_dist = std::uniform_int_distribution(instance.get_vertices_begin(), instance.get_vertices_end() - 1);
     cobra::Welford welf;
     for (int i = 0; i < instance.get_vertices_num(); ++i) {
@@ -223,14 +220,19 @@ int main(int argc, char* argv[]) {
     const auto sa_initial_temperature = welf.get_mean() * params.get_sa_initial_factor();
     const auto sa_final_temperature = sa_initial_temperature * params.get_sa_final_factor();
 
-#ifdef VERBOSE
-    std::cout << "Simulated annealing temperature goes from " << sa_initial_temperature << " to " << sa_final_temperature << ".\n\n";
-#endif
-
 #ifdef _OPENMP
     const int num_threads = std::min(omp_get_max_threads(), 8);
 #else
     const int num_threads = 1;
+#endif
+
+    // Divide iterations equally among threads.
+    const int per_thread_iterations = coreopt_iterations / num_threads;
+
+#ifdef VERBOSE
+    std::cout << "Simulated annealing temperature goes from " << sa_initial_temperature << " to " << sa_final_temperature << ".\n\n";
+    std::cout << "Running COREOPT for " << coreopt_iterations << " iterations (total across all threads).\n";
+    std::cout << "Splitting work among " << num_threads << " threads: " << per_thread_iterations << " iterations per thread.\n\n";
 #endif
 
     std::vector<uint32_t> coreopt_seeds(num_threads);
@@ -260,13 +262,8 @@ int main(int argc, char* argv[]) {
 
         cobra::Timer thread_timer;
 
-#ifdef TIMELIMIT
-        int per_thread_time_ms = optimization_milliseconds / num_threads;
-        auto sa = cobra::TimeBasedSimulatedAnnealing(sa_initial_temperature, sa_final_temperature, local_rng, per_thread_time_ms);
-#else
-        int per_thread_iterations = coreopt_iterations / num_threads;
+        // Each thread runs its own SA controller.
         auto sa = cobra::SimulatedAnnealing(sa_initial_temperature, sa_final_temperature, local_rng, per_thread_iterations);
-#endif
 
         auto rr = RuinAndRecreate(instance, local_rng);
 
@@ -309,6 +306,7 @@ int main(int argc, char* argv[]) {
         double reference_solution_cost = neighbor.get_cost();
 
 #ifdef VERBOSE
+        // Only thread 0 prints the progress table.
         cobra::PrettyPrinter printer({{"%", cobra::PrettyPrinter::Field::Type::REAL, 5, " "},
                                       {"Iterations", cobra::PrettyPrinter::Field::Type::INTEGER, 10, " "},
                                       {"Objective", cobra::PrettyPrinter::Field::Type::INTEGER, 10, " "},
@@ -335,12 +333,7 @@ int main(int argc, char* argv[]) {
         cobra::DistanceCache distance_cache(instance, k);
 #endif
 
-#ifdef TIMELIMIT
-        int iter = 0;
-        while (thread_timer.elapsed_time<std::chrono::milliseconds>() < per_thread_time_ms) {
-#else
         for (int iter = 0; iter < per_thread_iterations; ++iter) {
-#endif
 
             neighbor.apply_undo_list1(neighbor);
             neighbor.clear_do_list1();
@@ -414,20 +407,11 @@ int main(int argc, char* argv[]) {
 
             average_number_of_vertices_accessed.update(static_cast<double>(neighbor.get_svc_size()));
 
-#ifdef TIMELIMIT
-            double elapsed_sec = thread_timer.elapsed_time<std::chrono::seconds>();
-            double avg_iters_sec = (elapsed_sec > 0) ? (iter / elapsed_sec) : 1.0;
-            double remaining_sec = (per_thread_time_ms / 1000.0) - elapsed_sec;
-            double estimated_total_iters = iter + avg_iters_sec * remaining_sec;
-            int max_non_improving_iterations = static_cast<int>(std::ceil(
-                delta * estimated_total_iters * average_number_of_vertices_accessed.get_mean() /
-                static_cast<double>(instance.get_vertices_num())));
-#else
+            // Compute max_non_improving_iterations using the per‑thread iteration count.
             auto max_non_improving_iterations = static_cast<int>(std::ceil(
                 delta * static_cast<double>(per_thread_iterations) *
                 average_number_of_vertices_accessed.get_mean() /
                 static_cast<double>(instance.get_vertices_num())));
-#endif
 
 #ifdef VERBOSE
             if (t == 0) {
@@ -509,11 +493,7 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-#ifdef TIMELIMIT
-            if (sa.accept(reference_solution_cost, neighbor, thread_timer.elapsed_time<std::chrono::milliseconds>())) {
-#else
             if (sa.accept(reference_solution_cost, neighbor)) {
-#endif
 
                 if (!improved_thread_best) {
                     neighbor.append_do_list1_to_do_list2();
@@ -537,6 +517,7 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef VERBOSE
+            // Only thread 0 prints the progress table.
             if (t == 0 && local_timer.elapsed_time<std::chrono::seconds>() > 1) {
                 local_timer.reset();
 
@@ -552,14 +533,6 @@ int main(int argc, char* argv[]) {
                 }
                 omega_mean /= static_cast<double>(instance.get_customers_num());
 
-    #ifdef TIMELIMIT
-                const int elapsed_time_ms = thread_timer.elapsed_time<std::chrono::milliseconds>();
-                const auto progress = 100.0f * (elapsed_time_ms / 1000.0) / (per_thread_time_ms / 1000.0);
-                printer.print(progress, iter + 1, thread_best.get_cost(), thread_best.get_routes_num(),
-                              avg_iters_sec, remaining_sec,
-                              welford_rr.get_mean(), welford_ls.get_mean(),
-                              gamma_mean, omega_mean, sa.get_temperature(elapsed_time_ms));
-    #else
                 const auto progress = 100.0 * (iter + 1.0) / per_thread_iterations;
                 const auto elapsed_seconds = thread_timer.elapsed_time<std::chrono::seconds>();
                 const auto iter_per_second = static_cast<double>(iter + 1) / (static_cast<double>(elapsed_seconds) + 0.01);
@@ -570,13 +543,7 @@ int main(int argc, char* argv[]) {
                               iter_per_second, estimated_rem_time,
                               welford_rr.get_mean(), welford_ls.get_mean(),
                               gamma_mean, omega_mean, sa.get_temperature());
-    #endif
             }
-#endif
-
-#ifdef TIMELIMIT
-            ++iter;
-        } // while time
 #endif
         } // for iterations
 

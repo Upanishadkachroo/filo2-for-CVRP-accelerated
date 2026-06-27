@@ -6,7 +6,7 @@
 #include <cuda_runtime.h>
 
 namespace cobra {
-    class Instance;   // forward declaration only
+    class Instance;
 }
 
 namespace cobra {
@@ -21,10 +21,9 @@ public:
     float get_distance(int i, int j) const;
 
 private:
-    // No Instance member – we only store references to the data.
-    const std::vector<double>& xcoords;
+    const Instance* m_instance;          // pointer to instance for GPU data & neighbor lists
+    const std::vector<double>& xcoords;   // host coordinates (not used except for reference)
     const std::vector<double>& ycoords;
-    const std::vector<std::vector<int>>& neighbors;
     int k;
     int max_affected;
 

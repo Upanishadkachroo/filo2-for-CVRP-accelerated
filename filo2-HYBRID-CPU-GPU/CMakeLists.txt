@@ -48,7 +48,7 @@ endif()
 
 if(ENABLE_TIMELIMIT)
     message("--- Time limit termination ENABLED")
-    add_definitions(-DTIMELIMIT)
+   # add_definitions(-DTIMELIMIT)
 else()
     message("--- Time limit termination DISABLED")
 endif()
@@ -163,6 +163,9 @@ if(ENABLE_CUDA)
         cuda/uniform_grid.cuh      # header
         cuda/SavingsKernel.cu      # new GPU savings compute + sort
         cuda/SavingsKernel.cuh     # header
+        cuda/DistanceCache.cu       # new implementation
+        cuda/DistanceCache.hpp      # header (already included in Instance.hpp)
+        cuda/distance_cache.cuh     # kernel declaration
     )
 endif()
 
