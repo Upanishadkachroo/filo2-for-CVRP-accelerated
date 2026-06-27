@@ -5,10 +5,11 @@
 #include "../base/KDTree.hpp"
 #include "../base/Timer.hpp"
 
-// CUDA headers
 #ifdef USE_CUDA_NEIGHBORS
+    #include <cuda_runtime.h>
     #include "../cuda/CudaNeighborFinder.hpp"   // brute‑force implementation
     #include "cuda/uniform_grid.cuh"            // new uniform‑grid implementation
+    #include "../cuda/DistanceCache.hpp"        // for the distance cache
 #endif
 
 #ifdef VERBOSE
@@ -60,7 +61,6 @@ Instance::Instance(const Parser::Data& data, int neighbors_num) {
                 if (neighbors[i][pos] == i) break;
                 ++pos;
             }
-            // If not found (shouldn't happen), we keep the first element
             if (pos < static_cast<int>(neighbors[i].size())) {
                 std::swap(neighbors[i][0], neighbors[i][pos]);
             }
@@ -68,7 +68,7 @@ Instance::Instance(const Parser::Data& data, int neighbors_num) {
     };
 
     // -----------------------------------------------------------------
-    // Fallback: KDTree + OpenMP (used for large N or when CUDA fails)
+    // Fallback: KDTree + OpenMP
     // -----------------------------------------------------------------
     auto run_kdtree = [&]() {
         KDTree kd_tree(xcoords, ycoords);
@@ -102,7 +102,6 @@ Instance::Instance(const Parser::Data& data, int neighbors_num) {
     // Hybrid dispatcher based on N and available CUDA implementations
     // -----------------------------------------------------------------
 #ifdef USE_CUDA_NEIGHBORS
-    // Case 1: Small N → brute‑force CUDA (O(N²) but fast for tiny N)
     if (N <= 200000) {
 #ifdef VERBOSE
         std::cout << "[Neighbor] Using CUDA brute‑force (N = " << N << " ≤ 200000)\n";
@@ -116,7 +115,6 @@ Instance::Instance(const Parser::Data& data, int neighbors_num) {
 #endif
             run_kdtree();
         } else {
-            // Copy flat result into vector-of-vectors
             for (int i = 0; i < N; ++i) {
                 const int offset = i * neighbors_num;
                 neighbors[i].assign(flat.begin() + offset,
@@ -124,9 +122,7 @@ Instance::Instance(const Parser::Data& data, int neighbors_num) {
                 fix_self(i);
             }
         }
-    }
-    // Case 2: Medium N → uniform‑grid (exact, GPU‑friendly)
-    else if (N <= 1000000) {
+    } else if (N <= 1000000) {
 #ifdef VERBOSE
         std::cout << "[Neighbor] Using CUDA uniform grid (200000 < N = " << N << " ≤ 1000000)\n";
 #endif
@@ -152,9 +148,7 @@ Instance::Instance(const Parser::Data& data, int neighbors_num) {
                 }
             }
         }
-    }
-    // Case 3: Very large N → stick with KDTree (avoids GPU memory issues)
-    else {
+    } else {
 #ifdef VERBOSE
         std::cout << "[Neighbor] N = " << N << " > 1000000. Using KDTree + OpenMP.\n";
 #endif
@@ -164,6 +158,50 @@ Instance::Instance(const Parser::Data& data, int neighbors_num) {
 #else // USE_CUDA_NEIGHBORS not defined → CPU only
     run_kdtree();
 #endif
+
+    // ─── After neighbors are built, upload data to GPU (if CUDA is enabled) ───
+#ifdef USE_CUDA_NEIGHBORS
+    // Convert coordinates to float
+    std::vector<float> xf(N), yf(N);
+    for (int i = 0; i < N; ++i) {
+        xf[i] = static_cast<float>(xcoords[i]);
+        yf[i] = static_cast<float>(ycoords[i]);
+    }
+    cudaMalloc(&d_xcoords, N * sizeof(float));
+    cudaMalloc(&d_ycoords, N * sizeof(float));
+    cudaMemcpy(d_xcoords, xf.data(), N * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_ycoords, yf.data(), N * sizeof(float), cudaMemcpyHostToDevice);
+
+    // Flatten neighbor lists: N * (neighbors_num + 1)
+    int stride = neighbors_num + 1;
+    std::vector<int> flat(N * stride);
+    for (int i = 0; i < N; ++i) {
+        const auto& nbrs = neighbors[i];
+        // nbrs size should be stride (self + k neighbours)
+        for (int s = 0; s < stride; ++s) {
+            flat[i * stride + s] = (s < static_cast<int>(nbrs.size())) ? nbrs[s] : -1;
+        }
+    }
+    cudaMalloc(&d_neighbors_flat, N * stride * sizeof(int));
+    cudaMemcpy(d_neighbors_flat, flat.data(), N * stride * sizeof(int), cudaMemcpyHostToDevice);
+#endif
+}
+
+// -------------------------------------------------------------------
+// Distance cache support – thread‑local pointer
+// -------------------------------------------------------------------
+#ifdef USE_CUDA_NEIGHBORS
+    thread_local DistanceCache* Instance::current_cache = nullptr;
+#else
+    thread_local DistanceCache* Instance::current_cache = nullptr;
+#endif
+
+void Instance::set_distance_cache(DistanceCache* cache) {
+    current_cache = cache;
+}
+
+DistanceCache* Instance::get_distance_cache() {
+    return current_cache;
 }
 
 } // namespace cobra

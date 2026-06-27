@@ -2,7 +2,11 @@
 #define _FILO2_ROUTEMIN_HPP_
 
 #include <chrono>
-#include <iostream>   // for debug prints
+#include <iostream>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 #include "../base/PrettyPrinter.hpp"
 #include "../base/SparseIntSet.hpp"
@@ -15,29 +19,35 @@
 inline cobra::Solution routemin(const cobra::Instance &instance, const cobra::Solution &source, std::mt19937 &rand_engine,
                                 cobra::MoveGenerators &move_generators, int kmin, int max_iter, double tolerance) {
 
+    // Determine if this thread should print.
+    bool is_master_thread = true;
+#ifdef _OPENMP
+    if (omp_in_parallel()) {
+        is_master_thread = (omp_get_thread_num() == 0);
+    }
+#endif
+
 #ifdef VERBOSE
     auto partial_time_begin = std::chrono::high_resolution_clock::now();
     auto partial_time_end = std::chrono::high_resolution_clock::now();
 #endif
 
-    // Setup the local search engine.
-    // ----- REMOVED E10 from the operator list (was causing hang) -----
+    // Setup local search engine (unchanged).
     auto rvnd0 = cobra::RandomizedVariableNeighborhoodDescent</*handle_partial_solutions=*/true>(
         instance, move_generators,
-        {cobra::E11,   /* E10 removed */   cobra::TAILS, cobra::SPLIT, cobra::RE22B, cobra::E22,  cobra::RE20,  cobra::RE21,
+        {cobra::E11,   cobra::TAILS, cobra::SPLIT, cobra::RE22B, cobra::E22,  cobra::RE20,  cobra::RE21,
          cobra::RE22S, cobra::E21,   cobra::E20,   cobra::TWOPT, cobra::RE30,  cobra::E30,  cobra::RE33B, cobra::E33,
          cobra::RE31,  cobra::RE32B, cobra::RE33S, cobra::E31,   cobra::E32,   cobra::RE32S},
         rand_engine, tolerance);
     auto local_search = cobra::VariableNeighborhoodDescentComposer(tolerance);
     local_search.append(&rvnd0);
 
-    // We are going to use all the available move generators for during this procedure.
+    // Activate all move generators (unchanged).
     auto gamma_vertices = std::vector<int>();
     auto gamma = std::vector<double>(instance.get_vertices_num(), 1.0f);
     for (auto i = instance.get_vertices_begin(); i < instance.get_vertices_end(); i++) {
         gamma_vertices.emplace_back(i);
     }
-
     move_generators.set_active_percentage(gamma, gamma_vertices);
 
     auto best_solution = source;
@@ -62,13 +72,12 @@ inline cobra::Solution routemin(const cobra::Instance &instance, const cobra::So
 
 #ifdef VERBOSE
     const auto main_opt_loop_begin_time = std::chrono::high_resolution_clock::now();
-
-    auto printer = cobra::PrettyPrinter({{"%", cobra::PrettyPrinter::Field::Type::INTEGER, 3, " "},
-                                         {"Objective", cobra::PrettyPrinter::Field::Type::INTEGER, 10, " "},
-                                         {"Routes", cobra::PrettyPrinter::Field::Type::INTEGER, 6, " "},
-                                         {"Iter/s", cobra::PrettyPrinter::Field::Type::REAL, 7, " "},
-                                         {"Eta (s)", cobra::PrettyPrinter::Field::Type::REAL, 6, " "},
-                                         {"% Inf", cobra::PrettyPrinter::Field::Type::REAL, 6, " "}});
+    cobra::PrettyPrinter printer({{"%", cobra::PrettyPrinter::Field::Type::INTEGER, 3, " "},
+                                  {"Objective", cobra::PrettyPrinter::Field::Type::INTEGER, 10, " "},
+                                  {"Routes", cobra::PrettyPrinter::Field::Type::INTEGER, 6, " "},
+                                  {"Iter/s", cobra::PrettyPrinter::Field::Type::REAL, 7, " "},
+                                  {"Eta (s)", cobra::PrettyPrinter::Field::Type::REAL, 6, " "},
+                                  {"% Inf", cobra::PrettyPrinter::Field::Type::REAL, 6, " "}});
 
     auto number_infeasible_solutions = 0;
 #endif
@@ -76,26 +85,29 @@ inline cobra::Solution routemin(const cobra::Instance &instance, const cobra::So
     for (auto iter = 0; iter < max_iter; iter++) {
 
 #ifdef VERBOSE
-        partial_time_end = std::chrono::high_resolution_clock::now();
-        const auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(partial_time_end - partial_time_begin).count();
-        if (elapsed_time > 1) {
+        // Only the master thread updates the printer.
+        if (is_master_thread) {
+            partial_time_end = std::chrono::high_resolution_clock::now();
+            const auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(partial_time_end - partial_time_begin).count();
+            if (elapsed_time > 1) {
+                const auto progress = 100.0f * (iter + 1.0f) / static_cast<double>(max_iter);
+                const auto elapsed_seconds = std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::high_resolution_clock::now() - main_opt_loop_begin_time).count();
+                const auto iter_per_second = static_cast<double>(iter + 1.0f) / (static_cast<double>(elapsed_seconds) + 0.01f);
+                const auto remaining_iter = max_iter - iter;
+                const auto estimated_rem_time = static_cast<double>(remaining_iter) / iter_per_second;
+                const auto fraction_infeasible_solutions =
+                    static_cast<double>(number_infeasible_solutions) / (iter + 1.0f);
 
-            const auto progress = 100.0f * (iter + 1.0f) / static_cast<double>(max_iter);
-            const auto elapsed_seconds = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() -
-                                                                                          main_opt_loop_begin_time)
-                                             .count();
-            const auto iter_per_second = static_cast<double>(iter + 1.0f) / (static_cast<double>(elapsed_seconds) + 0.01f);
-            const auto remaining_iter = max_iter - iter;
-            const auto estimated_rem_time = static_cast<double>(remaining_iter) / iter_per_second;
-            const auto fraction_infeasible_solutions = static_cast<double>(number_infeasible_solutions) / (iter + 1.0f);
+                printer.print(progress, best_solution.get_cost(), best_solution.get_routes_num(),
+                              iter_per_second, estimated_rem_time, fraction_infeasible_solutions);
 
-            printer.print(progress, best_solution.get_cost(), best_solution.get_routes_num(), iter_per_second, estimated_rem_time,
-                          fraction_infeasible_solutions);
-
-            partial_time_begin = std::chrono::high_resolution_clock::now();
+                partial_time_begin = std::chrono::high_resolution_clock::now();
+            }
         }
 #endif
 
+        // ---- Core RouteMin logic (unchanged) ----
         solution.clear_svc();
 
         auto seed = cobra::Solution::dummy_vertex;
@@ -144,7 +156,6 @@ inline cobra::Solution routemin(const cobra::Instance &instance, const cobra::So
         }
 
         for (auto i : removed) {
-
             auto best_route = -1;
             auto best_where = -1;
             auto best_delta = std::numeric_limits<double>::max();
@@ -160,11 +171,9 @@ inline cobra::Solution routemin(const cobra::Instance &instance, const cobra::So
             const auto c_i_depot = instance.get_cost(i, instance.get_depot());
 
             for (auto route : neighbor_routes.get_elements()) {
-
                 if (solution.get_route_load(route) + instance.get_demand(i) > instance.get_vehicle_capacity()) {
                     continue;
                 }
-
                 for (auto j = solution.get_first_customer(route); j != instance.get_depot(); j = solution.get_next_vertex(j)) {
                     const auto prev = solution.get_prev_vertex(route, j);
                     const auto delta = -solution.get_cost_prev_customer(j) + instance.get_cost(prev, i) + instance.get_cost(i, j);
@@ -174,9 +183,8 @@ inline cobra::Solution routemin(const cobra::Instance &instance, const cobra::So
                         best_delta = delta;
                     }
                 }
-
-                const auto delta = -solution.get_cost_prev_depot(route) + instance.get_cost(solution.get_last_customer(route), i) +
-                                   c_i_depot;
+                const auto delta = -solution.get_cost_prev_depot(route) +
+                                   instance.get_cost(solution.get_last_customer(route), i) + c_i_depot;
                 if (delta < best_delta) {
                     best_route = route;
                     best_where = instance.get_depot();
@@ -213,7 +221,9 @@ inline cobra::Solution routemin(const cobra::Instance &instance, const cobra::So
             }
         } else {
 #ifdef VERBOSE
-            number_infeasible_solutions++;
+            if (is_master_thread) {
+                number_infeasible_solutions++;
+            }
 #endif
         }
 
@@ -226,7 +236,6 @@ inline cobra::Solution routemin(const cobra::Instance &instance, const cobra::So
         }
 
         t *= c;
-
         assert(solution.is_feasible());
     }
 

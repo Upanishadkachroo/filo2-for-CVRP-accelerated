@@ -22,6 +22,10 @@
     #include "Renderer.hpp"
 #endif
 
+#ifdef USE_CUDA_NEIGHBORS
+    #include "cuda/DistanceCache.hpp"
+#endif
+
 auto get_basename(const std::string& pathname) -> std::string {
     return {std::find_if(pathname.rbegin(), pathname.rend(), [](char c) { return c == '/'; }).base(), pathname.end()};
 }
@@ -138,7 +142,7 @@ int main(int argc, char* argv[]) {
     const auto tolerance = params.get_tolerance();
 
     // ──────────────────────────────────────────────────────────────────────────────
-    //  ROUTEMIN – Parallel restarts (only thread 0 prints)
+    //  ROUTEMIN – Parallel restarts (only thread 0 prints) – UNCHANGED
     // ──────────────────────────────────────────────────────────────────────────────
     if (kmin < best_solution.get_routes_num()) {
 
@@ -176,23 +180,9 @@ int main(int argc, char* argv[]) {
 #endif
         for (int t = 0; t < num_restarts; ++t) {
             std::mt19937 local_rng(thread_seeds[t]);
-
-            // Suppress stdout for threads other than 0
-            if (t == 0) {
-                thread_solutions[t] = routemin(
-                    instance, best_solution, local_rng,
-                    *thread_mg[t], kmin, routemin_iterations, tolerance);
-            } else {
-                std::streambuf* old_buf = std::cout.rdbuf();
-                std::ofstream devnull("/dev/null");
-                std::cout.rdbuf(devnull.rdbuf());
-
-                thread_solutions[t] = routemin(
-                    instance, best_solution, local_rng,
-                    *thread_mg[t], kmin, routemin_iterations, tolerance);
-
-                std::cout.rdbuf(old_buf);
-            }
+            thread_solutions[t] = routemin(
+                instance, best_solution, local_rng,
+                *thread_mg[t], kmin, routemin_iterations, tolerance);
         }
 
         for (auto* mg : thread_mg) delete mg;
@@ -215,7 +205,7 @@ int main(int argc, char* argv[]) {
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
-    //  COREOPT – Parallel trajectories (only thread 0 prints)
+    //  COREOPT – Parallel trajectories with Distance Cache
     // ──────────────────────────────────────────────────────────────────────────────
 
 #ifdef TIMELIMIT
@@ -264,7 +254,6 @@ int main(int argc, char* argv[]) {
     #pragma omp parallel for num_threads(num_threads) schedule(static, 1)
 #endif
     for (int t = 0; t < num_threads; ++t) {
-        // Thread-local variables
         std::mt19937 local_rng(coreopt_seeds[t]);
         auto& neighbor = thread_solutions[t];
         cobra::Solution thread_best = neighbor;
@@ -320,7 +309,6 @@ int main(int argc, char* argv[]) {
         double reference_solution_cost = neighbor.get_cost();
 
 #ifdef VERBOSE
-        // Declare all verbose‑related variables at thread scope (only thread 0 will update/print)
         cobra::PrettyPrinter printer({{"%", cobra::PrettyPrinter::Field::Type::REAL, 5, " "},
                                       {"Iterations", cobra::PrettyPrinter::Field::Type::INTEGER, 10, " "},
                                       {"Objective", cobra::PrettyPrinter::Field::Type::INTEGER, 10, " "},
@@ -340,6 +328,11 @@ int main(int argc, char* argv[]) {
         cobra::Welford welford_rac_after_shaking;
         cobra::Welford welford_local_optima;
         cobra::Welford welford_shaken_solutions;
+#endif
+
+        // ─── Create per‑thread distance cache ──────────────────────────────────
+#ifdef USE_CUDA_NEIGHBORS
+        cobra::DistanceCache distance_cache(instance, k);
 #endif
 
 #ifdef TIMELIMIT
@@ -376,6 +369,18 @@ int main(int argc, char* argv[]) {
             }
 #endif
 
+            // ─── Collect affected vertices from SVC ──────────────────────────
+            std::vector<int> affected;
+            affected.reserve(32);
+            for (auto i = neighbor.get_svc_begin(); i != neighbor.get_svc_end(); i = neighbor.get_svc_next(i)) {
+                affected.push_back(i);
+            }
+
+#ifdef USE_CUDA_NEIGHBORS
+            // ─── Launch distance kernel asynchronously ──────────────────────
+            distance_cache.compute(affected);
+#endif
+
             ruined_customers.clear();
             for (auto i = neighbor.get_svc_begin(); i != neighbor.get_svc_end(); i = neighbor.get_svc_next(i)) {
                 ruined_customers.emplace_back(i);
@@ -388,7 +393,17 @@ int main(int argc, char* argv[]) {
             }
 #endif
 
+#ifdef USE_CUDA_NEIGHBORS
+            // ─── Synchronise and activate cache ──────────────────────────────
+            distance_cache.synchronize();
+            cobra::Instance::set_distance_cache(&distance_cache);
+#endif
+
             local_search.sequential_apply(neighbor);
+
+#ifdef USE_CUDA_NEIGHBORS
+            cobra::Instance::set_distance_cache(nullptr);
+#endif
 
 #ifdef VERBOSE
             if (t == 0) {
