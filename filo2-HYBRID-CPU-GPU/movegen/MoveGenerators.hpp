@@ -113,7 +113,6 @@ namespace cobra {
     // ---------- MoveGenerators ----------
     class MoveGenerators : private NonCopyable<MoveGenerators> {
     public:
-        // ★★★ ADDED: print_profiling parameter (default true) ★★★
         MoveGenerators(const Instance& instance, int k, bool print_profiling = true)
             : max_num_neighbors(std::min(k, instance.get_vertices_num() - 1))
             , heap(MoveGeneratorsHeap())
@@ -306,7 +305,6 @@ namespace cobra {
 
             auto t_construct_end = std::chrono::high_resolution_clock::now();
 
-            // ★★★ Only print if requested ★★★
             if (print_profiling) {
                 auto ms = [](auto a, auto b) {
                     return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count();
@@ -324,7 +322,7 @@ namespace cobra {
             }
         }
 
-        // ---------- Public methods (unchanged) ----------
+        // ---------- Public methods ----------
         inline MoveGenerator& get(int idx) {
             assert(idx >= 0 && idx < static_cast<int>(moves.size()));
             return moves[idx];
@@ -348,40 +346,124 @@ namespace cobra {
             return VectorView<decltype(v.begin()), base_functor>(v.begin(), v.end());
         }
 
+        // ─── set_active_percentage with OpenMP parallelisation for large calls ───
         void set_active_percentage(std::vector<double>& percentage, std::vector<int>& vertices) {
+            // Threshold above which we use OpenMP (only the one‑time initialisation).
+            const size_t PARALLEL_THRESHOLD = 10000;
+
+            bool use_parallel = false;
+#ifdef _OPENMP
+            use_parallel = (vertices.size() > PARALLEL_THRESHOLD);
+#endif
+
+            // Clear global structures (will be repopulated).
             vertices_getting_updated.clear();
             vertices_in_updated_moves.clear();
 
-            for (int vertex : vertices) {
-                const int num_neigbors = std::round(percentage[vertex] * max_num_neighbors);
-                assert(num_neigbors <= static_cast<int>(base_move_indices_involving[vertex].size()));
+            if (use_parallel) {
+                // ── Parallel version ──
+                // We will process vertices in chunks, each thread updates its own
+                // local list of affected vertices. Then we merge.
 
-                if (num_neigbors == current_num_neighbors[vertex]) continue;
+                // Thread‑local data.
+                struct ThreadLocal {
+                    std::vector<int> local_getting_updated;
+                    std::vector<int> local_updated_vertices;   // vertices whose active flags changed
+                };
 
-                vertices_getting_updated.push_back(vertex);
+                std::vector<ThreadLocal> thread_data;
+                const int num_threads = omp_get_max_threads();
+                thread_data.resize(num_threads);
 
-                if (num_neigbors < current_num_neighbors[vertex]) {
-                    for (int n = num_neigbors; n < current_num_neighbors[vertex]; ++n) {
-                        const int idx = base_move_indices_involving[vertex][n];
-                        const MoveGenerator& move = moves[idx];
-                        assert(is_active_in(move, vertex));
-                        set_not_active_in(move, vertex);
-                        vertices_in_updated_moves.insert(move.get_first_vertex());
-                        vertices_in_updated_moves.insert(move.get_second_vertex());
+                // We also need to merge the SparseIntSet later; we'll use vectors.
+
+                #pragma omp parallel for schedule(dynamic, 64)
+                for (int idx = 0; idx < static_cast<int>(vertices.size()); ++idx) {
+                    const int vertex = vertices[idx];
+                    const int tid = omp_get_thread_num();
+                    auto& local = thread_data[tid];
+
+                    const int num_neigbors = std::round(percentage[vertex] * max_num_neighbors);
+                    assert(num_neigbors <= static_cast<int>(base_move_indices_involving[vertex].size()));
+
+                    if (num_neigbors == current_num_neighbors[vertex]) continue;
+
+                    local.local_getting_updated.push_back(vertex);
+
+                    if (num_neigbors < current_num_neighbors[vertex]) {
+                        for (int n = num_neigbors; n < current_num_neighbors[vertex]; ++n) {
+                            const int idx_move = base_move_indices_involving[vertex][n];
+                            const MoveGenerator& move = moves[idx_move];
+                            assert(is_active_in(move, vertex));
+                            set_not_active_in(move, vertex);
+                            local.local_updated_vertices.push_back(move.get_first_vertex());
+                            local.local_updated_vertices.push_back(move.get_second_vertex());
+                        }
+                    } else {
+                        for (int n = current_num_neighbors[vertex]; n < num_neigbors; ++n) {
+                            const int idx_move = base_move_indices_involving[vertex][n];
+                            const MoveGenerator& move = moves[idx_move];
+                            assert(!is_active_in(move, vertex));
+                            set_active_in(move, vertex);
+                            local.local_updated_vertices.push_back(move.get_first_vertex());
+                            local.local_updated_vertices.push_back(move.get_second_vertex());
+                        }
                     }
-                } else {
-                    for (int n = current_num_neighbors[vertex]; n < num_neigbors; ++n) {
-                        const int idx = base_move_indices_involving[vertex][n];
-                        const MoveGenerator& move = moves[idx];
-                        assert(!is_active_in(move, vertex));
-                        set_active_in(move, vertex);
-                        vertices_in_updated_moves.insert(move.get_first_vertex());
-                        vertices_in_updated_moves.insert(move.get_second_vertex());
-                    }
+                    current_num_neighbors[vertex] = num_neigbors;
                 }
-                current_num_neighbors[vertex] = num_neigbors;
+
+                // Merge thread‑local data into global structures.
+                // We use a simple vector and later deduplicate via SparseIntSet.
+                std::vector<int> all_updated;
+                for (auto& tl : thread_data) {
+                    vertices_getting_updated.insert(vertices_getting_updated.end(),
+                                                    tl.local_getting_updated.begin(),
+                                                    tl.local_getting_updated.end());
+                    all_updated.insert(all_updated.end(),
+                                       tl.local_updated_vertices.begin(),
+                                       tl.local_updated_vertices.end());
+                }
+
+                // Insert unique vertices into vertices_in_updated_moves (a SparseIntSet).
+                for (int v : all_updated) {
+                    vertices_in_updated_moves.insert(v);
+                }
+
+            } else {
+                // ── Sequential version (original) ──
+                for (int vertex : vertices) {
+                    const int num_neigbors = std::round(percentage[vertex] * max_num_neighbors);
+                    assert(num_neigbors <= static_cast<int>(base_move_indices_involving[vertex].size()));
+
+                    if (num_neigbors == current_num_neighbors[vertex]) continue;
+
+                    vertices_getting_updated.push_back(vertex);
+
+                    if (num_neigbors < current_num_neighbors[vertex]) {
+                        for (int n = num_neigbors; n < current_num_neighbors[vertex]; ++n) {
+                            const int idx = base_move_indices_involving[vertex][n];
+                            const MoveGenerator& move = moves[idx];
+                            assert(is_active_in(move, vertex));
+                            set_not_active_in(move, vertex);
+                            vertices_in_updated_moves.insert(move.get_first_vertex());
+                            vertices_in_updated_moves.insert(move.get_second_vertex());
+                        }
+                    } else {
+                        for (int n = current_num_neighbors[vertex]; n < num_neigbors; ++n) {
+                            const int idx = base_move_indices_involving[vertex][n];
+                            const MoveGenerator& move = moves[idx];
+                            assert(!is_active_in(move, vertex));
+                            set_active_in(move, vertex);
+                            vertices_in_updated_moves.insert(move.get_first_vertex());
+                            vertices_in_updated_moves.insert(move.get_second_vertex());
+                        }
+                    }
+                    current_num_neighbors[vertex] = num_neigbors;
+                }
             }
 
+            // ── Second loop: rebuild active_move_indices_involving_1st for affected vertices ──
+            // This part remains sequential (the set of affected vertices is small).
             unique_move_generators.clear();
             unique_endpoints.clear();
 
@@ -420,6 +502,7 @@ namespace cobra {
         static inline int get_base_move_generator_index(int index) { return index & ~1; }
 
     private:
+        // Helper methods (unchanged)
         inline void set_active_in(const MoveGenerator& move, int vertex) {
             const int idx = (&move - moves.data()) / 2;
             assert(vertex == move.get_first_vertex() || vertex == move.get_second_vertex());
@@ -459,6 +542,7 @@ namespace cobra {
         std::vector<unsigned long> vertex_timestamp;
         TimestampGenerator timegen;
 
+        // ---- Temporaries ----
         std::vector<int> vertices_getting_updated;
         SparseIntSet vertices_in_updated_moves;
         std::vector<int> unique_move_generators;

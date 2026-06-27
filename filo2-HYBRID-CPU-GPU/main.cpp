@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
     const auto tolerance = params.get_tolerance();
 
     // ──────────────────────────────────────────────────────────────────────────────
-    //  ROUTEMIN – Parallel restarts (only thread 0 prints)
+    //  ROUTEMIN – Sequential (reverted to original)
     // ──────────────────────────────────────────────────────────────────────────────
     if (kmin < best_solution.get_routes_num()) {
 
@@ -155,48 +155,8 @@ int main(int argc, char* argv[]) {
         timer.reset();
 #endif
 
-#ifdef _OPENMP
-        const int num_restarts = std::min(omp_get_max_threads(), 8);
-#else
-        const int num_restarts = 1;
-#endif
-
-        std::vector<uint32_t> thread_seeds(num_restarts);
-        for (int t = 0; t < num_restarts; ++t)
-            thread_seeds[t] = rand_engine();
-
-        std::vector<cobra::Solution> thread_solutions;
-        thread_solutions.reserve(num_restarts);
-        for (int t = 0; t < num_restarts; ++t)
-            thread_solutions.emplace_back(best_solution);
-
-        std::vector<cobra::MoveGenerators*> thread_mg;
-        thread_mg.reserve(num_restarts);
-        for (int t = 0; t < num_restarts; ++t)
-            thread_mg.push_back(new cobra::MoveGenerators(instance, k, false));
-
-#ifdef _OPENMP
-        #pragma omp parallel for num_threads(num_restarts) schedule(static, 1)
-#endif
-        for (int t = 0; t < num_restarts; ++t) {
-            std::mt19937 local_rng(thread_seeds[t]);
-            thread_solutions[t] = routemin(
-                instance, best_solution, local_rng,
-                *thread_mg[t], kmin, routemin_iterations, tolerance);
-        }
-
-        for (auto* mg : thread_mg) delete mg;
-        thread_mg.clear();
-
-        best_solution = thread_solutions[0];
-        for (int t = 1; t < num_restarts; ++t) {
-            const auto& ts = thread_solutions[t];
-            if (ts.get_routes_num() < best_solution.get_routes_num() ||
-               (ts.get_routes_num() == best_solution.get_routes_num() &&
-                ts.get_cost()       < best_solution.get_cost())) {
-                best_solution = ts;
-            }
-        }
+        // Original sequential call – no parallel restarts.
+        best_solution = routemin(instance, best_solution, rand_engine, move_generators, kmin, routemin_iterations, tolerance);
 
 #ifdef VERBOSE
         std::cout << "Final solution: obj = " << best_solution.get_cost() << ", n. routes = " << best_solution.get_routes_num() << "\n";
@@ -208,10 +168,8 @@ int main(int argc, char* argv[]) {
     //  COREOPT – Parallel trajectories (iteration‑based, no TIMELIMIT)
     // ──────────────────────────────────────────────────────────────────────────────
 
-    // Always use the iteration count from parameters (default 100000).
     const auto coreopt_iterations = params.get_coreopt_iterations();
 
-    // Compute mean distance for SA initial temperature (unchanged).
     auto vertices_dist = std::uniform_int_distribution(instance.get_vertices_begin(), instance.get_vertices_end() - 1);
     cobra::Welford welf;
     for (int i = 0; i < instance.get_vertices_num(); ++i) {
@@ -226,7 +184,6 @@ int main(int argc, char* argv[]) {
     const int num_threads = 1;
 #endif
 
-    // Divide iterations equally among threads.
     const int per_thread_iterations = coreopt_iterations / num_threads;
 
 #ifdef VERBOSE
@@ -251,8 +208,6 @@ int main(int argc, char* argv[]) {
     }
 
     cobra::Solution global_best = best_solution;
-
-    // ★★★ CoreOpt timer started here ★★★
     cobra::Timer coreopt_timer;
 
 #ifdef _OPENMP
@@ -265,7 +220,6 @@ int main(int argc, char* argv[]) {
 
         cobra::Timer thread_timer;
 
-        // Each thread runs its own SA controller.
         auto sa = cobra::SimulatedAnnealing(sa_initial_temperature, sa_final_temperature, local_rng, per_thread_iterations);
 
         auto rr = RuinAndRecreate(instance, local_rng);
@@ -309,7 +263,6 @@ int main(int argc, char* argv[]) {
         double reference_solution_cost = neighbor.get_cost();
 
 #ifdef VERBOSE
-        // Only thread 0 prints the progress table.
         cobra::PrettyPrinter printer({{"%", cobra::PrettyPrinter::Field::Type::REAL, 5, " "},
                                       {"Iterations", cobra::PrettyPrinter::Field::Type::INTEGER, 10, " "},
                                       {"Objective", cobra::PrettyPrinter::Field::Type::INTEGER, 10, " "},
@@ -331,7 +284,6 @@ int main(int argc, char* argv[]) {
         cobra::Welford welford_shaken_solutions;
 #endif
 
-        // ─── Create per‑thread distance cache ──────────────────────────────────
 #ifdef USE_CUDA_NEIGHBORS
         cobra::DistanceCache distance_cache(instance, k);
 #endif
@@ -365,7 +317,6 @@ int main(int argc, char* argv[]) {
             }
 #endif
 
-            // ─── Collect affected vertices from SVC ──────────────────────────
             std::vector<int> affected;
             affected.reserve(32);
             for (auto i = neighbor.get_svc_begin(); i != neighbor.get_svc_end(); i = neighbor.get_svc_next(i)) {
@@ -373,7 +324,6 @@ int main(int argc, char* argv[]) {
             }
 
 #ifdef USE_CUDA_NEIGHBORS
-            // ─── Launch distance kernel asynchronously ──────────────────────
             distance_cache.compute(affected);
 #endif
 
@@ -390,7 +340,6 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef USE_CUDA_NEIGHBORS
-            // ─── Synchronise and activate cache ──────────────────────────────
             distance_cache.synchronize();
             cobra::Instance::set_distance_cache(&distance_cache);
 #endif
@@ -410,7 +359,6 @@ int main(int argc, char* argv[]) {
 
             average_number_of_vertices_accessed.update(static_cast<double>(neighbor.get_svc_size()));
 
-            // Compute max_non_improving_iterations using the per‑thread iteration count.
             auto max_non_improving_iterations = static_cast<int>(std::ceil(
                 delta * static_cast<double>(per_thread_iterations) *
                 average_number_of_vertices_accessed.get_mean() /
@@ -520,7 +468,6 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef VERBOSE
-            // Only thread 0 prints the progress table.
             if (t == 0 && local_timer.elapsed_time<std::chrono::seconds>() > 1) {
                 local_timer.reset();
 
@@ -548,9 +495,8 @@ int main(int argc, char* argv[]) {
                               gamma_mean, omega_mean, sa.get_temperature());
             }
 #endif
-        } // for iterations
+        }
 
-        // Update global best
 #ifdef _OPENMP
         #pragma omp critical
 #endif
@@ -561,12 +507,11 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // ★★★ CoreOpt timer stopped and printed here ★★★
+    best_solution = global_best;
+
 #ifdef VERBOSE
     std::cout << "CoreOpt phase took " << coreopt_timer.elapsed_time<std::chrono::seconds>() << " seconds.\n\n";
 #endif
-
-    best_solution = global_best;
 
     for (auto* mg : thread_mg) delete mg;
     thread_mg.clear();
