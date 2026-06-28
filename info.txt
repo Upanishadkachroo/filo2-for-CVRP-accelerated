@@ -1,0 +1,71 @@
+cache clear command - sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'
+
+without cuda (kdtree + openmp)
+cd build
+cmake .. -DENABLE_CUDA=OFF
+make -j
+
+with cuda (brute force)
+cd build
+cmake .. -DENABLE_CUDA=ON
+make -j
+
+mkdir -p build && cd build
+cmake .. -DENABLE_CUDA=ON -DUSE_GRID_NEIGHBOR=ON
+make -j
+
+# Without grid (small/medium instances, N <= 200k)
+!cmake .. -DENABLE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=75
+!make -j$(nproc)
+
+# With grid (large instances up to 1M)
+!cmake .. -DENABLE_CUDA=ON -DUSE_GRID_NEIGHBOR=ON -DCMAKE_CUDA_ARCHITECTURES=75
+!make -j$(nproc)
+
+export CUDACXX=/usr/local/cuda/bin/nvcc   # or the actual path
+
+check for routemin
+./filo2-HYBRID-CPU-GPU ../instances/I/Lazio.vrp &
+PID=$!
+sleep 60
+ls -la /proc/$PID/fd 2>/dev/null && echo "Still running" || echo "Crashed"
+# Then check CPU usage:
+top -p $PID -bn1 | tail -5
+
+
+//to check if the code runs properly
+make -j$(nproc)
+
+# Run both versions on same instance for comparison
+./filo2-HYBRID-CPU-GPU ../instances/I/Lombardia.vrp 2>&1 | \
+    grep -E "took|Done in|constructor|milliseconds|Best solution|Run completed|routes ="
+
+
+cd ~/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build
+make clean
+cmake .. -DCMAKE_BUILD_TYPE=Release -DENABLE_VERBOSE=1 -DCUDA_ENABLED=1
+make -j
+
+# Step 1: clean build directory completely
+cd ~/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU
+rm -rf build
+mkdir build
+cd build
+
+# Step 2: configure WITHOUT USE_GRID_NEIGHBOR
+# (brute-force is faster for N≤1M and uses less GPU memory)
+cmake .. \
+    -DENABLE_CUDA=ON \
+    -DCMAKE_CUDA_ARCHITECTURES=89 \
+    -DENABLE_VERBOSE=ON \
+    -DENABLE_TIMELIMIT=OFF \
+    -DCMAKE_BUILD_TYPE=Release
+
+# Step 3: build
+make -j$(nproc)
+
+
+cd ~/snap/intern2/filo2-for-CVRP-accelerated/filo2-HYBRID-CPU-GPU/build
+rm -rf CMakeCache.txt CMakeFiles   # clear cached options
+cmake .. -DCMAKE_BUILD_TYPE=Release -DENABLE_VERBOSE=1 -DCUDA_ENABLED=1 -DUSE_GRID_NEIGHBOR=OFF
+make -j
